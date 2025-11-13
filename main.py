@@ -13,7 +13,21 @@ from minigames.memory_game import MemoryGame
 from minigames.stroop_game import StroopGame
 from minigames.snake_game import SnakeGame
 from minigames.tetris_game import TetrisGame
-from minigames.click_rapido import ClickRapido
+# Nuevos minijuegos añadidos
+# Se ha eliminado ReactionGame. Ahora se incluye un minijuego de pesca.
+from minigames.fishing_game import FishingGame
+from minigames.typing_game import TypingGame
+from minigames.catch_game import CatchGame
+# Nuevos minijuegos solicitados
+from minigames.lightning_dodge import LightningDodge
+from minigames.disarm_bomb import DisarmBomb
+from minigames.cross_road import CrossRoad
+from minigames.balloon_pop import BalloonPop
+from minigames.express_race import ExpressRace
+from minigames.jump_climb import JumpClimb
+
+# Nota: El minijuego "Click Rapido" se ha eliminado a petición del usuario.
+# Por lo tanto, no se importa ni se incluye en la lista de juegos disponibles.
 try:
     from PIL import Image, ImageTk
     HAS_PIL = True
@@ -203,7 +217,8 @@ class MiniDiego:
         self.total_time = 168 * 3600
         self.pause_time_used = 0
         self.pause_start_time = None
-        self.last_day_reset = time.time()
+        # Guardamos la fecha del último día en que se reseteó la pausa (YYYY-MM-DD)
+        self.pause_reset_date = time.strftime("%Y-%m-%d")
         
         # Crear mascota flotante
         self.pet_overlay = PetOverlay(self)
@@ -383,13 +398,11 @@ class MiniDiego:
             try:
                 if self.alive:
                     if self.paused and self.pause_start_time:
-                        # PAUSADO: Tiempo bajando en GRANDE
+                        # PAUSADO: mostrar tiempo transcurrido desde que se inició la pausa
                         used = self.pause_time_used + (time.time() - self.pause_start_time)
-                        remaining = PAUSE_TIME_LIMIT - used
-                        
-                        if remaining <= 0:
-                            # Se acabó el tiempo de pausa - reanudar automáticamente
-                            remaining = 0
+                        # Si se ha agotado el tiempo total, reanudar automáticamente
+                        if used >= PAUSE_TIME_LIMIT:
+                            used = PAUSE_TIME_LIMIT
                             self.pause_time_used = PAUSE_TIME_LIMIT
                             self.pause_start_time = None
                             self.paused = False
@@ -400,43 +413,32 @@ class MiniDiego:
                             )
                             time.sleep(1)
                             continue
-                        
-                        hours = int(remaining // 3600)
-                        minutes = int((remaining % 3600) // 60)
-                        seconds = int(remaining % 60)
-                        
-                        # Cambiar color según tiempo restante
-                        if remaining > 3600:  # >1h
-                            color = "#00FF00"
-                            status = "PAUSADO"
-                        elif remaining > 600:  # >10min
-                            color = "#FFD700"
-                            status = "PAUSADO"
-                        else:  # <10min
-                            color = "#FF0000"
-                            status = "PAUSADO - POCO TIEMPO"
-                        
+                        # Calcular horas, minutos y segundos transcurridos (ir de 00:00:00 hasta 07:00:00)
+                        hours = int(used // 3600)
+                        minutes = int((used % 3600) // 60)
+                        seconds = int(used % 60)
+                        # Mostrar en verde porque la pausa está corriendo
                         self.pause_time_label.config(
-                            text=f"{status}: {hours:02d}:{minutes:02d}:{seconds:02d}",
-                            fg=color
+                            text=f"Tiempo en pausa: {hours:02d}:{minutes:02d}:{seconds:02d}",
+                            fg="#00FF00"
                         )
                     else:
-                        # NO PAUSADO: Mostrar disponible
+                        # NO PAUSADO: Mostrar cuánto tiempo de pausa queda disponible
                         avail = PAUSE_TIME_LIMIT - self.pause_time_used
                         if avail < 0:
                             avail = 0
-                        
                         hours = int(avail // 3600)
                         minutes = int((avail % 3600) // 60)
                         seconds = int(avail % 60)
-                        
                         if avail > 0:
+                            # La pausa está disponible pero no activa: mostrar en naranja
                             self.pause_time_label.config(
                                 text=f"Pausa disponible: {hours:02d}:{minutes:02d}:{seconds:02d}",
-                                fg="#00FF00"
+                                fg="#FFC107"
                             )
                             self.pause_button.config(state="normal", bg="#FFC107")
                         else:
+                            # Sin tiempo disponible
                             self.pause_time_label.config(
                                 text="Pausa agotada - Se resetea en 24h",
                                 fg="#FF0000"
@@ -477,10 +479,12 @@ class MiniDiego:
                         
                         self.time_label.config(fg="#FFC107")
                     
-                    # Resetear pausa diaria
-                    if time.time() - self.last_day_reset >= 86400:
+                    # Resetear pausa diaria si cambia el día
+                    current_date = time.strftime("%Y-%m-%d")
+                    if current_date != self.pause_reset_date:
+                        # Ha pasado a un día diferente: restaurar tiempo de pausa
                         self.pause_time_used = 0
-                        self.last_day_reset = time.time()
+                        self.pause_reset_date = current_date
                 
                 time.sleep(1)
             except:
@@ -709,7 +713,30 @@ class MiniDiego:
         if self.current_game:
             return
         
-        games = [MathQuiz, MemoryGame, StroopGame, SnakeGame, TetrisGame, ClickRapido]
+        # Lista de minijuegos disponibles.  Añade nuevos juegos aquí para que
+        # puedan ser seleccionados aleatoriamente cuando se inicie un minijuego.
+        # Se ha eliminado ClickRapido de la lista.  La lista incluye tanto
+        # los minijuegos clásicos (quiz, memoria, stroop, snake, tetris) como
+        # los minijuegos de reacción, mecanografía, atrapar, evita rayos, desactiva
+        # bomba, cruza la calle, revienta globos, carrera exprés y salta/sube.
+        games = [
+            MathQuiz,
+            MemoryGame,
+            StroopGame,
+            SnakeGame,
+            TetrisGame,
+            FishingGame,
+            TypingGame,
+            CatchGame,
+            LightningDodge,
+            DisarmBomb,
+            CrossRoad,
+            BalloonPop,
+            ExpressRace,
+            JumpClimb
+        ]
+        # Si se especifica un juego concreto se usará, en caso contrario se
+        # escogerá uno aleatorio de la lista anterior.
         game_class = specific_game if specific_game else random.choice(games)
         
         try:
@@ -935,18 +962,27 @@ class MiniDiego:
         game_frame = tk.Frame(admin_win, bg="#1a1a1a")
         game_frame.pack(pady=5)
         
-        tk.Button(game_frame, text="Quiz", command=lambda: self.launch_minigame(MathQuiz), 
-                 width=22, bg="#2196F3", fg="white", font=("Arial", 10)).pack(pady=2)
-        tk.Button(game_frame, text="Memoria", command=lambda: self.launch_minigame(MemoryGame), 
-                 width=22, bg="#2196F3", fg="white", font=("Arial", 10)).pack(pady=2)
-        tk.Button(game_frame, text="Stroop", command=lambda: self.launch_minigame(StroopGame), 
-                 width=22, bg="#2196F3", fg="white", font=("Arial", 10)).pack(pady=2)
-        tk.Button(game_frame, text="Snake", command=lambda: self.launch_minigame(SnakeGame), 
-                 width=22, bg="#2196F3", fg="white", font=("Arial", 10)).pack(pady=2)
-        tk.Button(game_frame, text="Tetris", command=lambda: self.launch_minigame(TetrisGame), 
-                 width=22, bg="#2196F3", fg="white", font=("Arial", 10)).pack(pady=2)
-        tk.Button(game_frame, text="Click Rapido", command=lambda: self.launch_minigame(ClickRapido), 
-                 width=22, bg="#2196F3", fg="white", font=("Arial", 10)).pack(pady=2)
+        # Botones para forzar un minijuego específico.  Se incluyen todos los juegos
+        # disponibles.  El botón invoca launch_minigame con la clase correspondiente.
+        admin_games = [
+            ("Quiz", MathQuiz),
+            ("Memoria", MemoryGame),
+            ("Stroop", StroopGame),
+            ("Snake", SnakeGame),
+            ("Tetris", TetrisGame),
+            ("Pesca", FishingGame),
+            ("Mecanografía", TypingGame),
+            ("Atrapar", CatchGame),
+            ("Evita Rayos", LightningDodge),
+            ("Desactiva Bomba", DisarmBomb),
+            ("Cruza Calle", CrossRoad),
+            ("Revienta Globos", BalloonPop),
+            ("Carrera Exprés", ExpressRace),
+            ("Salta y Sube", JumpClimb)
+        ]
+        for text, game_cls in admin_games:
+            tk.Button(game_frame, text=text, command=lambda cls=game_cls: self.launch_minigame(cls),
+                     width=22, bg="#2196F3", fg="white", font=("Arial", 10)).pack(pady=2)
         
         tk.Frame(admin_win, height=2, bg="#555").pack(fill="x", pady=5)
         

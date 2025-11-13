@@ -224,7 +224,9 @@ class Roulette:
     def _get_winning_sector(self):
         """Determina el sector ganador"""
         normalized = self.angle % 360
-        pointer_angle = (90 - normalized) % 360
+        # La flecha de la ruleta está situada en la parte superior apuntando hacia abajo (270°).
+        # Ajustamos el ángulo para que el cálculo del sector ganador coincida con la flecha.
+        pointer_angle = (270 - normalized) % 360
         per_sector = 360.0 / self.n
         sector_index = int(pointer_angle / per_sector) % self.n
         return sector_index
