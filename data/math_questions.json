@@ -1,0 +1,22 @@
+[
+  {"question": "14 - 9 = ?", "options": ["3", "6", "7", "5"], "answer": "5"},
+  {"question": "18 + 31 = ?", "options": ["52", "51", "49", "53"], "answer": "49"},
+  {"question": "4 * 9 = ?", "options": ["36", "35", "34", "37"], "answer": "36"},
+  {"question": "36 - 35 = ?", "options": ["5", "3", "0", "1"], "answer": "1"},
+  {"question": "34 - 19 = ?", "options": ["17", "12", "16", "15"], "answer": "15"},
+  {"question": "42 - 13 = ?", "options": ["26", "33", "32", "29"], "answer": "29"},
+  {"question": "35 - 7 = ?", "options": ["32", "28", "30", "31"], "answer": "28"},
+  {"question": "44 - 38 = ?", "options": ["8", "9", "10", "6"], "answer": "6"},
+  {"question": "8 * 8 = ?", "options": ["67", "61", "64", "65"], "answer": "64"},
+  {"question": "5 * 12 = ?", "options": ["62", "57", "58", "60"], "answer": "60"},
+  {"question": "6 * 10 = ?", "options": ["59", "60", "64", "62"], "answer": "60"},
+  {"question": "8 + 38 = ?", "options": ["45", "48", "46", "43"], "answer": "46"},
+  {"question": "29 + 7 = ?", "options": ["36", "38", "37", "40"], "answer": "36"},
+  {"question": "17 - 10 = ?", "options": ["11", "8", "10", "7"], "answer": "7"},
+  {"question": "23 - 14 = ?", "options": ["7", "9", "13", "8"], "answer": "9"},
+  {"question": "9 * 3 = ?", "options": ["26", "25", "31", "27"], "answer": "27"},
+  {"question": "38 - 12 = ?", "options": ["27", "29", "26", "30"], "answer": "26"},
+  {"question": "34 - 17 = ?", "options": ["21", "16", "17", "15"], "answer": "17"},
+  {"question": "10 * 4 = ?", "options": ["42", "40", "38", "39"], "answer": "40"},
+  {"question": "16 - 16 = ?", "options": ["1", "4", "3", "0"], "answer": "0"}
+]
