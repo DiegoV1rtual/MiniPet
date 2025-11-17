@@ -18,7 +18,8 @@ import random
 import os
 
 try:
-    from PIL import Image, ImageTk  # type: ignore
+    # Import ImageEnhance to adjust brightness of the background.
+    from PIL import Image, ImageTk, ImageEnhance  # type: ignore
     HAS_PIL = True
 except Exception:
     HAS_PIL = False
@@ -60,17 +61,29 @@ class CatchGame:
         self.canvas.bind("<Button-1>", self._start_drag)
         self.canvas.bind("<B1-Motion>", self._drag)
 
-        # Background image
+        # Background image: pick a random 'fran' image and darken it slightly to reduce contrast.
         self.bg_photo = None
-        # Usar una imagen de fondo genérica 'fondo3.png'.
-        bg_path = os.path.join("assets", "custom", "fondo3.png")
-        if HAS_PIL and os.path.exists(bg_path):
+        if HAS_PIL:
+            bg_dir = os.path.join("assets", "custom")
             try:
-                img = Image.open(bg_path)
-                img = img.resize((self.width, self.height), Image.Resampling.LANCZOS)
-                self.bg_photo = ImageTk.PhotoImage(img)
+                fran_files = [f for f in os.listdir(bg_dir) if f.lower().startswith("fran") and f.lower().endswith((".png", ".gif"))]
             except Exception:
-                self.bg_photo = None
+                fran_files = []
+            if fran_files:
+                chosen = random.choice(fran_files)
+                image_path = os.path.join(bg_dir, chosen)
+                try:
+                    img = Image.open(image_path)
+                    try:
+                        img = img.convert("RGBA")
+                    except Exception:
+                        pass
+                    img = img.resize((self.width, self.height), Image.Resampling.LANCZOS)
+                    enhancer = ImageEnhance.Brightness(img)
+                    img = enhancer.enhance(0.7)
+                    self.bg_photo = ImageTk.PhotoImage(img)
+                except Exception:
+                    self.bg_photo = None
 
         # Paddle
         self.paddle_width = 120
@@ -156,9 +169,10 @@ class CatchGame:
             fill="yellow",
             justify="center"
         ))
+        # Botón gris para iniciar
         btn_rect = self.canvas.create_rectangle(
             cx - 100, cy + 80, cx + 100, cy + 130,
-            fill="#4CAF50", outline="white", width=3
+            fill="#6e6e6e", outline="white", width=3
         )
         self.widgets.append(btn_rect)
         btn_text = self.canvas.create_text(
@@ -214,15 +228,30 @@ class CatchGame:
     def _spawn_object(self) -> None:
         if not self.game_running or self.spawned_objects >= self.total_objects:
             return
-        # Each object has radius and position
+        # Decidir si el objeto es bueno o malo (calavera) con probabilidad 1/3
+        is_bad = random.random() < 0.33
         radius = 15
-        x = random.randint(0 + radius, self.width - radius)
-        y = 0 - radius  # start off screen
-        obj_id = self.canvas.create_oval(
-            x - radius, y - radius, x + radius, y + radius,
-            fill="#FFEB3B", outline="white", width=2
-        )
-        self.objects.append({"id": obj_id, "x": x, "y": y, "radius": radius})
+        x = random.randint(radius, self.width - radius)
+        y = 0 - radius  # inicia fuera de la pantalla
+        if is_bad:
+            # Dibujar calavera utilizando emoji
+            obj_id = self.canvas.create_text(
+                x, y,
+                text="☠", font=("Arial", 20, "bold"), fill="white"
+            )
+        else:
+            # Dibujar objeto bueno (círculo amarillo)
+            obj_id = self.canvas.create_oval(
+                x - radius, y - radius, x + radius, y + radius,
+                fill="#FFEB3B", outline="white", width=2
+            )
+        self.objects.append({
+            "id": obj_id,
+            "x": x,
+            "y": y,
+            "radius": radius,
+            "is_bad": is_bad
+        })
         self.spawned_objects += 1
         # Spawn next object after random interval between 600-1000ms
         self.window.after(random.randint(600, 1000), self._spawn_object)
@@ -232,18 +261,23 @@ class CatchGame:
             return
         objects_to_remove = []
         for obj in self.objects:
-            # Move object down
+            # Mover objeto hacia abajo
             obj["y"] += 5
             self.canvas.move(obj["id"], 0, 5)
-            # Check collision with paddle
+            # Comprobar colisión con la barra
             if obj["y"] + obj["radius"] >= self.paddle_y:
-                # Check horizontal overlap
+                # Comprobar solapamiento horizontal
                 if (self.paddle_x - obj["radius"] <= obj["x"] <= self.paddle_x + self.paddle_width + obj["radius"]):
-                    # Caught
-                    self.caught += 1
-                    objects_to_remove.append(obj)
-                    continue
-            # Check if off-screen (missed)
+                    # Si el objeto es malo (calavera), derrota inmediata
+                    if obj.get("is_bad"):
+                        self._game_over(False)
+                        return
+                    else:
+                        # Atrapado
+                        self.caught += 1
+                        objects_to_remove.append(obj)
+                        continue
+            # Comprobar si salió de la pantalla (perdido)
             if obj["y"] - obj["radius"] > self.height:
                 self.missed += 1
                 objects_to_remove.append(obj)
@@ -301,9 +335,10 @@ class CatchGame:
             font=("Arial", 16),
             fill="white"
         ))
+        # Botón gris en la pantalla de resultado
         btn_rect = self.canvas.create_rectangle(
             cx - 100, cy + 60, cx + 100, cy + 110,
-            fill="#2196F3", outline="white", width=3
+            fill="#6e6e6e", outline="white", width=3
         )
         self.widgets.append(btn_rect)
         btn_text = self.canvas.create_text(

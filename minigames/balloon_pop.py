@@ -15,7 +15,8 @@ import random
 import os
 
 try:
-    from PIL import Image, ImageTk  # type: ignore
+    # Import ImageEnhance to tweak brightness of chosen backgrounds.
+    from PIL import Image, ImageTk, ImageEnhance  # type: ignore
     HAS_PIL = True
 except Exception:
     HAS_PIL = False
@@ -41,7 +42,8 @@ class BalloonPop:
         self.window.overrideredirect(True)
         self.window.attributes("-topmost", True)
         self.window.configure(bg="#1a1a1a")
-        self.width, self.height = 600, 500
+        # Aumenta el tamaño de la ventana para un juego más exigente
+        self.width, self.height = 800, 600
         self.canvas = tk.Canvas(self.window, bg="#1a1a1a", highlightthickness=0)
         self.canvas.pack(fill="both", expand=True)
         self.window.update_idletasks()
@@ -56,15 +58,28 @@ class BalloonPop:
 
         # Fondo
         self.bg_photo = None
-        # Usar una imagen de fondo genérica 'fondo7.png'.
-        bg_path = os.path.join("assets", "custom", "fondo7.png")
-        if HAS_PIL and os.path.exists(bg_path):
+        # Selecciona aleatoriamente una imagen de 'fran' y oscurece ligeramente la imagen.
+        if HAS_PIL:
+            bg_dir = os.path.join("assets", "custom")
             try:
-                img = Image.open(bg_path)
-                img = img.resize((self.width, self.height), Image.Resampling.LANCZOS)
-                self.bg_photo = ImageTk.PhotoImage(img)
+                fran_files = [f for f in os.listdir(bg_dir) if f.lower().startswith("fran") and f.lower().endswith(".png")]
             except Exception:
-                self.bg_photo = None
+                fran_files = []
+            if fran_files:
+                chosen = random.choice(fran_files)
+                image_path = os.path.join(bg_dir, chosen)
+                try:
+                    img = Image.open(image_path)
+                    try:
+                        img = img.convert("RGBA")
+                    except Exception:
+                        pass
+                    img = img.resize((self.width, self.height), Image.Resampling.LANCZOS)
+                    enhancer = ImageEnhance.Brightness(img)
+                    img = enhancer.enhance(0.7)
+                    self.bg_photo = ImageTk.PhotoImage(img)
+                except Exception:
+                    self.bg_photo = None
 
         # Colores de globos (indicamos rojos y otros colores)
         self.colors = ["red", "blue", "green", "yellow", "purple", "orange"]
@@ -107,9 +122,10 @@ class BalloonPop:
             fill="yellow",
             justify="center"
         ))
+        # Botón gris en lugar de verde
         btn_rect = self.canvas.create_rectangle(
             cx - 100, cy + 80, cx + 100, cy + 130,
-            fill="#4CAF50", outline="white", width=3
+            fill="#6e6e6e", outline="white", width=3
         )
         self.widgets.append(btn_rect)
         btn_text = self.canvas.create_text(
@@ -138,8 +154,8 @@ class BalloonPop:
     def _spawn_balloon(self) -> None:
         if not self.game_running:
             return
-        # Generar uno o dos globos cada vez
-        for _ in range(random.randint(1, 2)):
+        # Generar entre dos y tres globos cada vez para incrementar la dificultad
+        for _ in range(random.randint(2, 3)):
             radius = random.randint(15, 25)
             x = random.randint(radius, self.width - radius)
             y = self.height + radius  # empieza fuera de la parte visible
@@ -155,10 +171,11 @@ class BalloonPop:
                 "y": y,
                 "radius": radius,
                 "color": color,
-                "speed": random.randint(2, 4)
+                # Mayor velocidad para que sea más difícil
+                "speed": random.randint(4, 7)
             })
-        # Programar siguiente aparición
-        self.window.after(800, self._spawn_balloon)
+        # Programar siguiente aparición más frecuente
+        self.window.after(600, self._spawn_balloon)
 
     def _on_balloon_click(self, balloon_id: int, color: str) -> None:
         if not self.game_running:
@@ -237,9 +254,10 @@ class BalloonPop:
             font=("Arial", 16),
             fill="white"
         ))
+        # Botón gris en pantalla final
         btn_rect = self.canvas.create_rectangle(
             cx - 100, cy + 60, cx + 100, cy + 110,
-            fill="#2196F3", outline="white", width=3
+            fill="#6e6e6e", outline="white", width=3
         )
         self.widgets.append(btn_rect)
         btn_text = self.canvas.create_text(

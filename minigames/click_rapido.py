@@ -1,6 +1,14 @@
 import tkinter as tk
 import random
 import time
+import os
+
+try:
+    # Import PIL for random backgrounds
+    from PIL import Image, ImageTk, ImageEnhance  # type: ignore
+    HAS_PIL = True
+except Exception:
+    HAS_PIL = False
 
 class ClickRapido:
     """Click Rapido - Acierta 8 de 10 botones"""
@@ -18,7 +26,9 @@ class ClickRapido:
         self.window.attributes("-topmost", True)
         self.window.configure(bg="#1a1a1a")
         
+        # Dimensiones de la ventana
         w, h = 600, 500
+        self.width, self.height = w, h
         self.canvas = tk.Canvas(self.window, bg="#1a1a1a", highlightthickness=0)
         self.canvas.pack(fill="both", expand=True)
         
@@ -28,6 +38,30 @@ class ClickRapido:
         x = (screen_w - w) // 2
         y = (screen_h - h) // 2
         self.window.geometry(f"{w}x{h}+{x}+{y}")
+
+        # Fondo aleatorio para el juego
+        self.bg_photo = None
+        if HAS_PIL:
+            bg_dir = os.path.join("assets", "custom")
+            try:
+                fran_files = [f for f in os.listdir(bg_dir) if f.lower().startswith("fran") and f.lower().endswith((".png", ".gif"))]
+            except Exception:
+                fran_files = []
+            if fran_files:
+                chosen = random.choice(fran_files)
+                path = os.path.join(bg_dir, chosen)
+                try:
+                    img = Image.open(path)
+                    try:
+                        img = img.convert("RGBA")
+                    except Exception:
+                        pass
+                    img = img.resize((w, h), Image.Resampling.LANCZOS)
+                    enhancer = ImageEnhance.Brightness(img)
+                    img = enhancer.enhance(0.7)
+                    self.bg_photo = ImageTk.PhotoImage(img)
+                except Exception:
+                    self.bg_photo = None
         
         self.canvas.bind("<Button-1>", self._start_drag)
         self.canvas.bind("<B1-Motion>", self._drag)
@@ -50,35 +84,41 @@ class ClickRapido:
         self._clear_widgets()
         w, h = self.canvas.winfo_width(), self.canvas.winfo_height()
         cx, cy = w // 2, h // 2
-        
+
+        # Dibujar fondo si está disponible
+        if hasattr(self, 'bg_photo') and self.bg_photo:
+            bg_id = self.canvas.create_image(0, 0, anchor="nw", image=self.bg_photo)
+            self.widgets.append(bg_id)
+
         self.widgets.append(self.canvas.create_text(
             cx, cy - 100,
             text="CLICK RAPIDO",
             font=("Arial", 28, "bold"),
             fill="white"))
-        
+
         inst_text = """Haz click en el boton antes de 2 segundos
 10 rondas - Necesitas 8 aciertos para ganar"""
-        
+
         self.widgets.append(self.canvas.create_text(
             cx, cy,
             text=inst_text,
             font=("Arial", 13),
             fill="yellow",
             justify="center"))
-        
+
+        # Botón gris para comenzar
         btn_rect = self.canvas.create_rectangle(
             cx - 100, cy + 80, cx + 100, cy + 130,
-            fill="#4CAF50", outline="white", width=3)
+            fill="#6e6e6e", outline="white", width=3)
         self.widgets.append(btn_rect)
-        
+
         btn_text = self.canvas.create_text(
             cx, cy + 105,
             text="COMENZAR",
             font=("Arial", 16, "bold"),
             fill="white")
         self.widgets.append(btn_text)
-        
+
         self.canvas.tag_bind(btn_rect, "<Button-1>", lambda e: self._next_round())
         self.canvas.tag_bind(btn_text, "<Button-1>", lambda e: self._next_round())
     
@@ -88,6 +128,10 @@ class ClickRapido:
             return
         
         self._clear_widgets()
+        # Dibujar fondo si está disponible
+        if hasattr(self, 'bg_photo') and self.bg_photo:
+            bg_id = self.canvas.create_image(0, 0, anchor="nw", image=self.bg_photo)
+            self.widgets.append(bg_id)
         self.game_running = True
         self.clicked = False
         
@@ -143,38 +187,44 @@ class ClickRapido:
     def _game_over(self):
         self.game_running = False
         self._clear_widgets()
-        
+
+        # Fondo
+        if hasattr(self, 'bg_photo') and self.bg_photo:
+            bg_id = self.canvas.create_image(0, 0, anchor="nw", image=self.bg_photo)
+            self.widgets.append(bg_id)
+
         w, h = self.canvas.winfo_width(), self.canvas.winfo_height()
         cx, cy = w // 2, h // 2
-        
+
         won = self.aciertos >= 8
         result_text = "VICTORIA" if won else "Derrota"
         result_color = "#4CAF50" if won else "#f44336"
-        
+
         self.widgets.append(self.canvas.create_text(
             cx, cy - 60,
             text=result_text,
             font=("Arial", 36, "bold"),
             fill=result_color))
-        
+
         self.widgets.append(self.canvas.create_text(
             cx, cy,
             text=f"Aciertos: {self.aciertos}/10",
             font=("Arial", 16),
             fill="white"))
-        
+
+        # Botón gris para continuar
         btn_rect = self.canvas.create_rectangle(
             cx - 100, cy + 60, cx + 100, cy + 110,
-            fill="#2196F3", outline="white", width=3)
+            fill="#6e6e6e", outline="white", width=3)
         self.widgets.append(btn_rect)
-        
+
         btn_text = self.canvas.create_text(
             cx, cy + 85,
             text="CONTINUAR",
             font=("Arial", 16, "bold"),
             fill="white")
         self.widgets.append(btn_text)
-        
+
         self.canvas.tag_bind(btn_rect, "<Button-1>", lambda e: self._close_result(won))
         self.canvas.tag_bind(btn_text, "<Button-1>", lambda e: self._close_result(won))
     

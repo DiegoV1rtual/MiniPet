@@ -1,6 +1,13 @@
 import tkinter as tk
 import random
 import time
+import os
+
+try:
+    from PIL import Image, ImageTk, ImageEnhance  # type: ignore
+    HAS_PIL = True
+except Exception:
+    HAS_PIL = False
 
 class Cazabichos:
     """Cazabichos - Acierta 15 bichos en 30 segundos"""
@@ -36,6 +43,30 @@ class Cazabichos:
         self.window.focus_force()
         self.widgets = []
         self.current_bug = None
+
+        # Fondo aleatorio: selecciona una imagen "fran" al azar y oscurece ligeramente
+        self.bg_photo = None
+        if HAS_PIL:
+            bg_dir = os.path.join("assets", "custom")
+            try:
+                fran_files = [f for f in os.listdir(bg_dir) if f.lower().startswith("fran") and f.lower().endswith((".png", ".gif"))]
+            except Exception:
+                fran_files = []
+            if fran_files:
+                chosen = random.choice(fran_files)
+                path = os.path.join(bg_dir, chosen)
+                try:
+                    img = Image.open(path)
+                    try:
+                        img = img.convert("RGBA")
+                    except Exception:
+                        pass
+                    img = img.resize((w, h), Image.Resampling.LANCZOS)
+                    enhancer = ImageEnhance.Brightness(img)
+                    img = enhancer.enhance(0.7)
+                    self.bg_photo = ImageTk.PhotoImage(img)
+                except Exception:
+                    self.bg_photo = None
     
     def _start_drag(self, event):
         self._drag_data = {"x": event.x, "y": event.y}
@@ -53,7 +84,12 @@ class Cazabichos:
         self._clear_widgets()
         w, h = self.canvas.winfo_width(), self.canvas.winfo_height()
         cx, cy = w // 2, h // 2
-        
+
+        # Dibujar fondo si está disponible
+        if hasattr(self, 'bg_photo') and self.bg_photo:
+            bg_id = self.canvas.create_image(0, 0, anchor="nw", image=self.bg_photo)
+            self.widgets.append(bg_id)
+
         self.widgets.append(self.canvas.create_text(
             cx, cy - 100,
             text="CAZABICHOS",
@@ -71,9 +107,10 @@ Apunta bien"""
             fill="yellow",
             justify="center"))
         
+        # Botón gris para comenzar
         btn_rect = self.canvas.create_rectangle(
             cx - 100, cy + 80, cx + 100, cy + 130,
-            fill="#4CAF50", outline="white", width=3)
+            fill="#6e6e6e", outline="white", width=3)
         self.widgets.append(btn_rect)
         
         btn_text = self.canvas.create_text(
@@ -175,34 +212,40 @@ Apunta bien"""
         self._clear_widgets()
         w, h = self.canvas.winfo_width(), self.canvas.winfo_height()
         cx, cy = w // 2, h // 2
-        
+
+        # Dibujar fondo si está disponible
+        if hasattr(self, 'bg_photo') and self.bg_photo:
+            bg_id = self.canvas.create_image(0, 0, anchor="nw", image=self.bg_photo)
+            self.widgets.append(bg_id)
+
         result_text = "VICTORIA" if won else "Derrota"
         result_color = "#4CAF50" if won else "#f44336"
-        
+
         self.widgets.append(self.canvas.create_text(
             cx, cy - 60,
             text=result_text,
             font=("Arial", 36, "bold"),
             fill=result_color))
-        
+
         self.widgets.append(self.canvas.create_text(
             cx, cy,
             text=f"Bichos cazados: {self.aciertos}/{self.objetivo}",
             font=("Arial", 16),
             fill="white"))
-        
+
+        # Botón gris para continuar
         btn_rect = self.canvas.create_rectangle(
             cx - 100, cy + 60, cx + 100, cy + 110,
-            fill="#2196F3", outline="white", width=3)
+            fill="#6e6e6e", outline="white", width=3)
         self.widgets.append(btn_rect)
-        
+
         btn_text = self.canvas.create_text(
             cx, cy + 85,
             text="CONTINUAR",
             font=("Arial", 16, "bold"),
             fill="white")
         self.widgets.append(btn_text)
-        
+
         self.canvas.tag_bind(btn_rect, "<Button-1>", lambda e: self._close_result(won))
         self.canvas.tag_bind(btn_text, "<Button-1>", lambda e: self._close_result(won))
     

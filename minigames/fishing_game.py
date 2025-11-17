@@ -28,7 +28,8 @@ import random
 import os
 
 try:
-    from PIL import Image, ImageTk  # type: ignore
+    # Import ImageEnhance so we can dim backgrounds selected randomly.
+    from PIL import Image, ImageTk, ImageEnhance  # type: ignore
     HAS_PIL = True
 except Exception:
     HAS_PIL = False
@@ -83,14 +84,28 @@ class FishingGame:
 
         # Imagen de fondo
         self.bg_photo = None
-        bg_path = os.path.join("assets", "custom", "fondo10.png")
-        if HAS_PIL and os.path.exists(bg_path):
+        # Selecciona una imagen aleatoria "fran" y oscurece ligeramente la imagen.
+        if HAS_PIL:
+            bg_dir = os.path.join("assets", "custom")
             try:
-                img = Image.open(bg_path)
-                img = img.resize((self.width, self.height), Image.Resampling.LANCZOS)
-                self.bg_photo = ImageTk.PhotoImage(img)
+                fran_files = [f for f in os.listdir(bg_dir) if f.lower().startswith("fran") and f.lower().endswith(".png")]
             except Exception:
-                self.bg_photo = None
+                fran_files = []
+            if fran_files:
+                chosen = random.choice(fran_files)
+                image_path = os.path.join(bg_dir, chosen)
+                try:
+                    img = Image.open(image_path)
+                    try:
+                        img = img.convert("RGBA")
+                    except Exception:
+                        pass
+                    img = img.resize((self.width, self.height), Image.Resampling.LANCZOS)
+                    enhancer = ImageEnhance.Brightness(img)
+                    img = enhancer.enhance(0.7)
+                    self.bg_photo = ImageTk.PhotoImage(img)
+                except Exception:
+                    self.bg_photo = None
 
         # Widgets dibujados
         self.widgets = []
@@ -142,9 +157,10 @@ class FishingGame:
             justify="center"
         ))
         # Botón comenzar
+        # Botón de inicio gris
         btn_rect = self.canvas.create_rectangle(
             cx - 100, cy + 80, cx + 100, cy + 130,
-            fill="#4CAF50", outline="white", width=3
+            fill="#6e6e6e", outline="white", width=3
         )
         self.widgets.append(btn_rect)
         btn_text = self.canvas.create_text(
@@ -301,10 +317,10 @@ class FishingGame:
             font=("Arial", 16),
             fill="white"
         ))
-        # Botón continuar
+        # Botón continuar gris
         btn_rect = self.canvas.create_rectangle(
             cx - 100, cy + 40, cx + 100, cy + 90,
-            fill="#2196F3", outline="white", width=3
+            fill="#6e6e6e", outline="white", width=3
         )
         self.widgets.append(btn_rect)
         btn_text = self.canvas.create_text(

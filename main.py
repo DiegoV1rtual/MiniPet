@@ -15,16 +15,23 @@ from minigames.snake_game import SnakeGame
 from minigames.tetris_game import TetrisGame
 # Nuevos minijuegos añadidos
 # Se ha eliminado ReactionGame. Ahora se incluye un minijuego de pesca.
-from minigames.fishing_game import FishingGame
 from minigames.typing_game import TypingGame
 from minigames.catch_game import CatchGame
 # Nuevos minijuegos solicitados
 from minigames.lightning_dodge import LightningDodge
 from minigames.disarm_bomb import DisarmBomb
 from minigames.cross_road import CrossRoad
-from minigames.balloon_pop import BalloonPop
 from minigames.express_race import ExpressRace
-from minigames.jump_climb import JumpClimb
+# El minijuego JumpClimb (Salta y sube) se ha eliminado a petición del usuario.
+# from minigames.jump_climb import JumpClimb
+# Nuevos minijuegos añadidos
+# Importación de SpaceInvaderGame eliminada porque el juego
+# no funciona correctamente y ha sido retirado del proyecto.
+# from minigames.space_invader import SpaceInvaderGame
+from minigames.asteroids_game import AsteroidsGame
+from minigames.blackjack_game import BlackjackGame
+from minigames.casino_roulette import CasinoRouletteGame
+from minigames.pairs_game import PairsGame
 
 # Nota: El minijuego "Click Rapido" se ha eliminado a petición del usuario.
 # Por lo tanto, no se importa ni se incluye en la lista de juegos disponibles.
@@ -725,15 +732,18 @@ class MiniDiego:
             StroopGame,
             SnakeGame,
             TetrisGame,
-            FishingGame,
             TypingGame,
             CatchGame,
             LightningDodge,
             DisarmBomb,
             CrossRoad,
-            BalloonPop,
             ExpressRace,
-            JumpClimb
+            # Se elimina SpaceInvaderGame ya que no funciona correctamente
+            AsteroidsGame,
+            BlackjackGame,
+            CasinoRouletteGame,
+            PairsGame,
+            # JumpClimb se elimina de la lista de minijuegos disponibles
         ]
         # Si se especifica un juego concreto se usará, en caso contrario se
         # escogerá uno aleatorio de la lista anterior.
@@ -953,10 +963,10 @@ class MiniDiego:
         
         
         tk.Label(admin_win, text="ADMIN",
-                font=("Arial", 16, "bold"), bg="#1a1a1a", fg="white").pack(pady=15)
-        
+                font=("Comic Sans MS", 16, "bold"), bg="#1a1a1a", fg="white").pack(pady=15)
+
         tk.Label(admin_win, text="Forzar minijuego:",
-                font=("Arial", 11, "bold"), bg="#1a1a1a", fg="white").pack(pady=8)
+                font=("Comic Sans MS", 12, "bold"), bg="#1a1a1a", fg="white").pack(pady=8)
         
         # Frame con scroll para los juegos
         game_frame = tk.Frame(admin_win, bg="#1a1a1a")
@@ -970,19 +980,21 @@ class MiniDiego:
             ("Stroop", StroopGame),
             ("Snake", SnakeGame),
             ("Tetris", TetrisGame),
-            ("Pesca", FishingGame),
             ("Mecanografía", TypingGame),
             ("Atrapar", CatchGame),
             ("Evita Rayos", LightningDodge),
             ("Desactiva Bomba", DisarmBomb),
             ("Cruza Calle", CrossRoad),
-            ("Revienta Globos", BalloonPop),
             ("Carrera Exprés", ExpressRace),
-            ("Salta y Sube", JumpClimb)
+            # Nuevos minijuegos añadidos
+            ("Asteroides", AsteroidsGame),
+            ("Blackjack", BlackjackGame),
+            ("Ruleta Casino", CasinoRouletteGame),
+            ("Parejas", PairsGame)
         ]
         for text, game_cls in admin_games:
             tk.Button(game_frame, text=text, command=lambda cls=game_cls: self.launch_minigame(cls),
-                     width=22, bg="#2196F3", fg="white", font=("Arial", 10)).pack(pady=2)
+                     width=22, bg="#2196F3", fg="white", font=("Comic Sans MS", 10, "bold")).pack(pady=2)
         
         tk.Frame(admin_win, height=2, bg="#555").pack(fill="x", pady=5)
         

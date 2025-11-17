@@ -1,6 +1,14 @@
 import tkinter as tk
 import math
 import random
+import os
+
+try:
+    # Import PIL para fondos aleatorios
+    from PIL import Image, ImageTk, ImageEnhance  # type: ignore
+    HAS_PIL = True
+except Exception:
+    HAS_PIL = False
 
 class Roulette:
     def __init__(self, parent_window, sectors, callback, title="Ruleta"):
@@ -20,6 +28,8 @@ class Roulette:
         # Canvas
         width = 700
         height = 600
+        self.width = width
+        self.height = height
         self.canvas = tk.Canvas(self.window, bg="#1a1a1a", 
                                highlightthickness=0, width=width, height=height)
         self.canvas.pack(fill="both", expand=True)
@@ -35,6 +45,26 @@ class Roulette:
         # Arrastrable
         self.canvas.bind("<Button-1>", self._start_drag)
         self.canvas.bind("<B1-Motion>", self._drag)
+
+        # Fondo aleatorio
+        self.bg_photo = None
+        if HAS_PIL:
+            bg_dir = os.path.join("assets", "custom")
+            try:
+                fran_files = [f for f in os.listdir(bg_dir) if f.lower().startswith("fran") and f.lower().endswith((".png", ".gif"))]
+            except Exception:
+                fran_files = []
+            if fran_files:
+                chosen = random.choice(fran_files)
+                path = os.path.join(bg_dir, chosen)
+                try:
+                    img = Image.open(path)
+                    img = img.resize((width, height), Image.Resampling.LANCZOS)
+                    enhancer = ImageEnhance.Brightness(img)
+                    img = enhancer.enhance(0.7)
+                    self.bg_photo = ImageTk.PhotoImage(img)
+                except Exception:
+                    self.bg_photo = None
         
         self.size = 350
         self.radius = 140
@@ -47,7 +77,10 @@ class Roulette:
         self.center_y = height // 2 - 20
         
         self.widgets = []
+        # Programar giro automático tras 30 segundos si el usuario no pulsa el botón
+        self.auto_spin_job = None
         self.draw_roulette(0)
+        self.auto_spin_job = self.window.after(30000, self._auto_spin)
     
     def _start_drag(self, event):
         self._drag_data = {"x": event.x, "y": event.y}
@@ -67,12 +100,17 @@ class Roulette:
             except:
                 pass
         self.widgets.clear()
+
+        # Dibujar fondo si está disponible
+        if hasattr(self, 'bg_photo') and self.bg_photo:
+            bg_id = self.canvas.create_image(0, 0, anchor="nw", image=self.bg_photo)
+            self.widgets.append(bg_id)
         
         # Título elegante
         title_id = self.canvas.create_text(
             self.center_x, 50,
             text=self.title, 
-            font=("Arial", 26, "bold"),
+            font=("Comic Sans MS", 26, "bold"),
             fill="white"
         )
         self.widgets.append(title_id)
@@ -81,17 +119,20 @@ class Roulette:
         if not self.spinning:
             subtitle_id = self.canvas.create_text(
                 self.center_x, 85,
-                text="Haz click en GIRAR para tu recompensa",
-                font=("Arial", 11),
-                fill="#aaa"
+                text="Haz click en GIRAR o espera 30 s",
+                font=("Comic Sans MS", 12),
+                fill="#cccccc"
             )
             self.widgets.append(subtitle_id)
         
         cx = cy = self.center_x, self.center_y
         per_sector = 360.0 / self.n
         
-        # Colores vibrantes
-        colors = ["#FF6B6B", "#4ECDC4", "#FFE66D", "#A8E6CF", "#FF8B94", "#C7CEEA", "#95E1D3"]
+        # Colores sólidos adicionales para dar más variedad
+        colors = [
+            "#E74C3C", "#8E44AD", "#3498DB", "#1ABC9C", "#F1C40F", "#E67E22", "#2ECC71",
+            "#E84393", "#6C5CE7", "#00B894", "#D63031", "#0984E3"
+        ]
         
         for i, (label, payload) in enumerate(self.sectors):
             start_angle = (i * per_sector - rotation_angle) % 360
@@ -118,7 +159,7 @@ class Roulette:
             
             text_id = self.canvas.create_text(
                 tx, ty, text=label, 
-                font=("Arial", 11, "bold"),
+                font=("Comic Sans MS", 12, "bold"),
                 fill="white", width=90, justify="center"
             )
             self.widgets.append(text_id)
@@ -147,18 +188,18 @@ class Roulette:
             btn_rect = self.canvas.create_rectangle(
                 self.center_x - 100, self.center_y + self.radius + 50,
                 self.center_x + 100, self.center_y + self.radius + 110,
-                fill="#4CAF50", outline="white", width=4
+                fill="#6e6e6e", outline="white", width=4
             )
             self.widgets.append(btn_rect)
-            
+
             btn_text = self.canvas.create_text(
                 self.center_x, self.center_y + self.radius + 80,
                 text="GIRAR",
-                font=("Arial", 20, "bold"),
+                font=("Comic Sans MS", 20, "bold"),
                 fill="white"
             )
             self.widgets.append(btn_text)
-            
+
             # Bind click (solo en el botón, no en toda la ventana)
             self.canvas.tag_bind(btn_rect, "<Button-1>", lambda e: self.start())
             self.canvas.tag_bind(btn_text, "<Button-1>", lambda e: self.start())
@@ -167,11 +208,22 @@ class Roulette:
         """Inicia el giro"""
         if self.spinning:
             return
-        
+        # Cancelar giro automático programado si el usuario ha pulsado el botón
+        try:
+            if self.auto_spin_job is not None:
+                self.window.after_cancel(self.auto_spin_job)
+                self.auto_spin_job = None
+        except Exception:
+            pass
         self.spinning = True
         self.v = random.uniform(22, 38)
         self.dec = random.uniform(0.16, 0.26)
         self._animate()
+
+    def _auto_spin(self):
+        """Lanza el giro automáticamente si el usuario no ha pulsado el botón en 30 s"""
+        if not self.spinning:
+            self.start()
     
     def _animate(self):
         """Animación del giro"""

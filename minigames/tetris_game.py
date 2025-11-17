@@ -1,5 +1,12 @@
 import tkinter as tk
 import random
+import os
+
+try:
+    from PIL import Image, ImageTk, ImageEnhance  # type: ignore
+    HAS_PIL = True
+except Exception:
+    HAS_PIL = False
 
 class TetrisGame:
     """Tetris - Llega a 500 puntos para ganar"""
@@ -12,7 +19,8 @@ class TetrisGame:
         self.grid_width = 10
         self.grid_height = 20
         self.score = 0
-        self.target_score = 500
+        # Puntaje objetivo: se gana al alcanzar 2000 puntos
+        self.target_score = 2000
         self.level = 1
         self.lines_cleared = 0
         self.game_over = False
@@ -82,6 +90,31 @@ class TetrisGame:
         
         self.window.focus_force()
         self.widgets = []
+
+        # Fondo aleatorio
+        self.bg_photo = None
+        if HAS_PIL:
+            bg_dir = os.path.join("assets", "custom")
+            try:
+                fran_files = [f for f in os.listdir(bg_dir) if f.lower().startswith("fran") and f.lower().endswith((".png", ".gif"))]
+            except Exception:
+                fran_files = []
+            if fran_files:
+                chosen = random.choice(fran_files)
+                path = os.path.join(bg_dir, chosen)
+                try:
+                    # redimensionar a tamaño del canvas
+                    img = Image.open(path)
+                    try:
+                        img = img.convert("RGBA")
+                    except Exception:
+                        pass
+                    img = img.resize((canvas_width, canvas_height), Image.Resampling.LANCZOS)
+                    enhancer = ImageEnhance.Brightness(img)
+                    img = enhancer.enhance(0.7)
+                    self.bg_photo = ImageTk.PhotoImage(img)
+                except Exception:
+                    self.bg_photo = None
     
     def _start_drag(self, event):
         self._drag_data = {"x": event.x, "y": event.y}
@@ -97,6 +130,10 @@ class TetrisGame:
     
     def _show_instructions(self):
         self._clear_widgets()
+        # Fondo en pantalla de instrucciones
+        if getattr(self, 'bg_photo', None):
+            bg_id = self.canvas.create_image(0, 0, anchor="nw", image=self.bg_photo)
+            self.widgets.append(bg_id)
         w, h = self.canvas.winfo_width(), self.canvas.winfo_height()
         cx, cy = w // 2, h // 2
         
@@ -106,7 +143,7 @@ class TetrisGame:
             font=("Arial", 28, "bold"),
             fill="white"))
         
-        inst_text = """Llega a 500 puntos para ganar
+        inst_text = """Llega a 2000 puntos para ganar
 
 CONTROLES:
 Flechas: Mover y rotar
@@ -125,9 +162,10 @@ PUNTUACION:
             fill="yellow",
             justify="center"))
         
+        # Botón gris
         btn_rect = self.canvas.create_rectangle(
             cx - 100, cy + 150, cx + 100, cy + 200,
-            fill="#4CAF50", outline="white", width=3)
+            fill="#6e6e6e", outline="white", width=3)
         self.widgets.append(btn_rect)
         
         btn_text = self.canvas.create_text(
@@ -244,6 +282,10 @@ PUNTUACION:
     
     def _draw_game(self):
         self._clear_widgets()
+        # Fondo durante el juego
+        if getattr(self, 'bg_photo', None):
+            bg_id = self.canvas.create_image(0, 0, anchor="nw", image=self.bg_photo)
+            self.widgets.append(bg_id)
         offset_x = 20
         offset_y = 80
         
@@ -290,6 +332,10 @@ PUNTUACION:
     
     def _game_over_screen(self):
         self._clear_widgets()
+        # Fondo en pantalla final
+        if getattr(self, 'bg_photo', None):
+            bg_id = self.canvas.create_image(0, 0, anchor="nw", image=self.bg_photo)
+            self.widgets.append(bg_id)
         w, h = self.canvas.winfo_width(), self.canvas.winfo_height()
         cx, cy = w // 2, h // 2
         
@@ -315,9 +361,10 @@ PUNTUACION:
             font=("Arial", 14),
             fill="#FFD700"))
         
+        # Botón gris
         btn_rect = self.canvas.create_rectangle(
             cx - 100, cy + 70, cx + 100, cy + 120,
-            fill="#2196F3", outline="white", width=3)
+            fill="#6e6e6e", outline="white", width=3)
         self.widgets.append(btn_rect)
         
         btn_text = self.canvas.create_text(

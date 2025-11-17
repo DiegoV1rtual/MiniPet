@@ -16,7 +16,8 @@ import random
 import os
 
 try:
-    from PIL import Image, ImageTk  # type: ignore
+    # Import ImageEnhance to adjust brightness of background images.
+    from PIL import Image, ImageTk, ImageEnhance  # type: ignore
     HAS_PIL = True
 except Exception:
     HAS_PIL = False
@@ -59,15 +60,28 @@ class CrossRoad:
 
         # Fondo
         self.bg_photo = None
-        # Usar una imagen de fondo genérica 'fondo6.png'.
-        bg_path = os.path.join("assets", "custom", "fondo6.png")
-        if HAS_PIL and os.path.exists(bg_path):
+        # Selecciona aleatoriamente una imagen 'fran' y aplícale un oscurecimiento ligero.
+        if HAS_PIL:
+            bg_dir = os.path.join("assets", "custom")
             try:
-                img = Image.open(bg_path)
-                img = img.resize((self.width, self.height), Image.Resampling.LANCZOS)
-                self.bg_photo = ImageTk.PhotoImage(img)
+                fran_files = [f for f in os.listdir(bg_dir) if f.lower().startswith("fran") and f.lower().endswith((".png", ".gif"))]
             except Exception:
-                self.bg_photo = None
+                fran_files = []
+            if fran_files:
+                chosen = random.choice(fran_files)
+                image_path = os.path.join(bg_dir, chosen)
+                try:
+                    img = Image.open(image_path)
+                    try:
+                        img = img.convert("RGBA")
+                    except Exception:
+                        pass
+                    img = img.resize((self.width, self.height), Image.Resampling.LANCZOS)
+                    enhancer = ImageEnhance.Brightness(img)
+                    img = enhancer.enhance(0.7)
+                    self.bg_photo = ImageTk.PhotoImage(img)
+                except Exception:
+                    self.bg_photo = None
 
         # Jugador
         self.player_width = 30
@@ -123,9 +137,10 @@ class CrossRoad:
             fill="yellow",
             justify="center"
         ))
+        # Botón gris en lugar de verde
         btn_rect = self.canvas.create_rectangle(
             cx - 100, cy + 80, cx + 100, cy + 130,
-            fill="#4CAF50", outline="white", width=3
+            fill="#6e6e6e", outline="white", width=3
         )
         self.widgets.append(btn_rect)
         btn_text = self.canvas.create_text(
@@ -290,9 +305,10 @@ class CrossRoad:
             fill="white"
         ))
         # Botón continuar
+        # Botón gris en pantalla final
         btn_rect = self.canvas.create_rectangle(
             cx - 100, cy + 60, cx + 100, cy + 110,
-            fill="#2196F3", outline="white", width=3
+            fill="#6e6e6e", outline="white", width=3
         )
         self.widgets.append(btn_rect)
         btn_text = self.canvas.create_text(

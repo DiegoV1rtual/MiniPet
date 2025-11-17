@@ -1,5 +1,13 @@
 import tkinter as tk
 import random
+import os
+
+try:
+    # Para cargar fondos personalizados y ajustar el brillo
+    from PIL import Image, ImageTk, ImageEnhance  # type: ignore
+    HAS_PIL = True
+except Exception:
+    HAS_PIL = False
 
 class MemoryGame:
     """Juego de Memoria (Simon Says) - Versin mejorada"""
@@ -47,6 +55,30 @@ class MemoryGame:
         self.canvas.bind("<B1-Motion>", self._drag)
         
         self.widgets = []
+
+        # Fondo aleatorio
+        self.bg_photo = None
+        if HAS_PIL:
+            bg_dir = os.path.join("assets", "custom")
+            try:
+                fran_files = [f for f in os.listdir(bg_dir) if f.lower().startswith("fran") and f.lower().endswith((".png", ".gif"))]
+            except Exception:
+                fran_files = []
+            if fran_files:
+                chosen = random.choice(fran_files)
+                path = os.path.join(bg_dir, chosen)
+                try:
+                    img = Image.open(path)
+                    try:
+                        img = img.convert("RGBA")
+                    except Exception:
+                        pass
+                    img = img.resize((700, 550), Image.Resampling.LANCZOS)
+                    enhancer = ImageEnhance.Brightness(img)
+                    img = enhancer.enhance(0.7)
+                    self.bg_photo = ImageTk.PhotoImage(img)
+                except Exception:
+                    self.bg_photo = None
     
     def _start_drag(self, event):
         self._drag_data = {"x": event.x, "y": event.y}
@@ -67,7 +99,12 @@ class MemoryGame:
         w, h = self.canvas.winfo_width(), self.canvas.winfo_height()
         cx, cy = w // 2, h // 2
         
-        # Ttulo
+        # Dibujar fondo si está disponible
+        if getattr(self, 'bg_photo', None):
+            bg_id = self.canvas.create_image(0, 0, anchor="nw", image=self.bg_photo)
+            self.widgets.append(bg_id)
+
+        # Título
         self.widgets.append(self.canvas.create_text(
             cx, cy - 180,
             text="JUEGO DE MEMORIA",
@@ -111,10 +148,10 @@ Llega al nivel 10 para ganar"""
                 font=("Arial", 9),
                 fill="white"))
         
-        # Botn comenzar
+        # Botón comenzar gris
         btn_rect = self.canvas.create_rectangle(
             cx - 100, cy + 190, cx + 100, cy + 240,
-            fill="#4CAF50", outline="white", width=3)
+            fill="#6e6e6e", outline="white", width=3)
         self.widgets.append(btn_rect)
         
         btn_text = self.canvas.create_text(
@@ -142,6 +179,10 @@ Llega al nivel 10 para ganar"""
     def _draw_game_screen(self):
         """Pantalla de juego mejorada"""
         self._clear_widgets()
+        # Fondo
+        if getattr(self, 'bg_photo', None):
+            bg_id = self.canvas.create_image(0, 0, anchor="nw", image=self.bg_photo)
+            self.widgets.append(bg_id)
         
         w, h = self.canvas.winfo_width(), self.canvas.winfo_height()
         cx, cy = w // 2, h // 2
@@ -290,6 +331,10 @@ Llega al nivel 10 para ganar"""
             return
         
         self._clear_widgets()
+        # Fondo en pantalla final
+        if getattr(self, 'bg_photo', None):
+            bg_id = self.canvas.create_image(0, 0, anchor="nw", image=self.bg_photo)
+            self.widgets.append(bg_id)
         
         w, h = self.canvas.winfo_width(), self.canvas.winfo_height()
         cx, cy = w // 2, h // 2
@@ -329,10 +374,10 @@ Llega al nivel 10 para ganar"""
             font=("Arial", 14),
             fill="#FFD700"))
         
-        # Botn continuar
+        # Botón continuar gris
         btn_rect = self.canvas.create_rectangle(
             cx - 100, cy + 80, cx + 100, cy + 130,
-            fill="#2196F3", outline="white", width=3)
+            fill="#6e6e6e", outline="white", width=3)
         self.widgets.append(btn_rect)
         
         btn_text = self.canvas.create_text(

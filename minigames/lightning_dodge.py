@@ -20,7 +20,8 @@ import time
 import os
 
 try:
-    from PIL import Image, ImageTk  # type: ignore
+    # Import ImageEnhance to allow dimming of randomly selected backgrounds.
+    from PIL import Image, ImageTk, ImageEnhance  # type: ignore
     HAS_PIL = True
 except Exception:
     HAS_PIL = False
@@ -66,15 +67,29 @@ class LightningDodge:
 
         # Imagen de fondo
         self.bg_photo = None
-        # Usar una imagen de fondo genérica 'fondo4.png'.
-        bg_path = os.path.join("assets", "custom", "fondo4.png")
-        if HAS_PIL and os.path.exists(bg_path):
+        # Seleccionar aleatoriamente una imagen 'fran' y oscurecerla ligeramente.
+        if HAS_PIL:
+            bg_dir = os.path.join("assets", "custom")
             try:
-                img = Image.open(bg_path)
-                img = img.resize((self.width, self.height), Image.Resampling.LANCZOS)
-                self.bg_photo = ImageTk.PhotoImage(img)
+                fran_files = [f for f in os.listdir(bg_dir) if f.lower().startswith("fran") and f.lower().endswith((".png", ".gif"))]
             except Exception:
-                self.bg_photo = None
+                fran_files = []
+            if fran_files:
+                chosen = random.choice(fran_files)
+                image_path = os.path.join(bg_dir, chosen)
+                try:
+                    # Convertir a RGBA para soportar GIFs (primer fotograma)
+                    img = Image.open(image_path)
+                    try:
+                        img = img.convert("RGBA")
+                    except Exception:
+                        pass
+                    img = img.resize((self.width, self.height), Image.Resampling.LANCZOS)
+                    enhancer = ImageEnhance.Brightness(img)
+                    img = enhancer.enhance(0.7)
+                    self.bg_photo = ImageTk.PhotoImage(img)
+                except Exception:
+                    self.bg_photo = None
 
         # Sprite de rayo (opcional)
         self.bolt_photo = None
@@ -82,6 +97,10 @@ class LightningDodge:
         if HAS_PIL and os.path.exists(bolt_path):
             try:
                 bolt_img = Image.open(bolt_path)
+                try:
+                    bolt_img = bolt_img.convert("RGBA")
+                except Exception:
+                    pass
                 bolt_img = bolt_img.resize((self.bolt_size[0], self.bolt_size[1]), Image.Resampling.LANCZOS)
                 self.bolt_photo = ImageTk.PhotoImage(bolt_img)
             except Exception:
@@ -165,9 +184,10 @@ class LightningDodge:
             fill="yellow",
             justify="center"
         ))
+        # Botón gris en lugar de verde
         btn_rect = self.canvas.create_rectangle(
             cx - 100, cy + 80, cx + 100, cy + 130,
-            fill="#4CAF50", outline="white", width=3
+            fill="#6e6e6e", outline="white", width=3
         )
         self.widgets.append(btn_rect)
         btn_text = self.canvas.create_text(
@@ -319,9 +339,10 @@ class LightningDodge:
             fill="white"
         ))
         # Botón continuar
+        # Botón gris en pantalla final
         btn_rect = self.canvas.create_rectangle(
             cx - 100, cy + 60, cx + 100, cy + 110,
-            fill="#2196F3", outline="white", width=3
+            fill="#6e6e6e", outline="white", width=3
         )
         self.widgets.append(btn_rect)
         btn_text = self.canvas.create_text(

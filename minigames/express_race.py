@@ -14,9 +14,11 @@ se muestra una barra de progreso en la parte inferior de la pantalla.
 import tkinter as tk
 import time
 import os
+import random
 
 try:
-    from PIL import Image, ImageTk  # type: ignore
+    # Import ImageEnhance to adjust background brightness.
+    from PIL import Image, ImageTk, ImageEnhance  # type: ignore
     HAS_PIL = True
 except Exception:
     HAS_PIL = False
@@ -56,15 +58,28 @@ class ExpressRace:
 
         # Fondo
         self.bg_photo = None
-        # Usar una imagen de fondo genérica 'fondo8.png'.
-        bg_path = os.path.join("assets", "custom", "fondo8.png")
-        if HAS_PIL and os.path.exists(bg_path):
+        # Selecciona al azar una imagen 'fran' y oscurece ligeramente la imagen.
+        if HAS_PIL:
+            bg_dir = os.path.join("assets", "custom")
             try:
-                img = Image.open(bg_path)
-                img = img.resize((self.width, self.height), Image.Resampling.LANCZOS)
-                self.bg_photo = ImageTk.PhotoImage(img)
+                fran_files = [f for f in os.listdir(bg_dir) if f.lower().startswith("fran") and f.lower().endswith((".png", ".gif"))]
             except Exception:
-                self.bg_photo = None
+                fran_files = []
+            if fran_files:
+                chosen = random.choice(fran_files)
+                image_path = os.path.join(bg_dir, chosen)
+                try:
+                    img = Image.open(image_path)
+                    try:
+                        img = img.convert("RGBA")
+                    except Exception:
+                        pass
+                    img = img.resize((self.width, self.height), Image.Resampling.LANCZOS)
+                    enhancer = ImageEnhance.Brightness(img)
+                    img = enhancer.enhance(0.7)
+                    self.bg_photo = ImageTk.PhotoImage(img)
+                except Exception:
+                    self.bg_photo = None
 
         # Barra de progreso (rectángulo)
         self.progress_bar_bg = None
@@ -94,10 +109,11 @@ class ExpressRace:
         if self.bg_photo:
             bg_id = self.canvas.create_image(0, 0, anchor="nw", image=self.bg_photo)
             self.widgets.append(bg_id)
+        # Título con fuente manuscrita para un toque más informal
         self.widgets.append(self.canvas.create_text(
             cx, cy - 80,
             text="CARRERA EXPRÉS",
-            font=("Arial", 28, "bold"),
+            font=("Comic Sans MS", 28, "bold"),
             fill="white"
         ))
         inst_text = (
@@ -107,19 +123,20 @@ class ExpressRace:
         self.widgets.append(self.canvas.create_text(
             cx, cy,
             text=inst_text,
-            font=("Arial", 13),
+            font=("Comic Sans MS", 13),
             fill="yellow",
             justify="center"
         ))
+        # Botón de inicio gris
         btn_rect = self.canvas.create_rectangle(
             cx - 100, cy + 70, cx + 100, cy + 120,
-            fill="#4CAF50", outline="white", width=3
+            fill="#6e6e6e", outline="white", width=3
         )
         self.widgets.append(btn_rect)
         btn_text = self.canvas.create_text(
             cx, cy + 95,
             text="COMENZAR",
-            font=("Arial", 16, "bold"),
+            font=("Comic Sans MS", 16, "bold"),
             fill="white"
         )
         self.widgets.append(btn_text)
@@ -182,7 +199,7 @@ class ExpressRace:
             10, 10,
             text=f"Tiempo: {seconds:02d}s",
             anchor="nw",
-            font=("Arial", 16, "bold"),
+            font=("Comic Sans MS", 16, "bold"),
             fill="white",
             tag="timer_text"
         )
@@ -206,25 +223,26 @@ class ExpressRace:
         self.widgets.append(self.canvas.create_text(
             cx, cy - 50,
             text=result_text,
-            font=("Arial", 36, "bold"),
+            font=("Comic Sans MS", 36, "bold"),
             fill=result_color
         ))
         msg = "¡Has llegado a la meta!" if won else "No has llegado a tiempo"
         self.widgets.append(self.canvas.create_text(
             cx, cy,
             text=msg,
-            font=("Arial", 16),
+            font=("Comic Sans MS", 16),
             fill="white"
         ))
+        # Botón de continuar gris
         btn_rect = self.canvas.create_rectangle(
             cx - 100, cy + 50, cx + 100, cy + 100,
-            fill="#2196F3", outline="white", width=3
+            fill="#6e6e6e", outline="white", width=3
         )
         self.widgets.append(btn_rect)
         btn_text = self.canvas.create_text(
             cx, cy + 75,
             text="CONTINUAR",
-            font=("Arial", 16, "bold"),
+            font=("Comic Sans MS", 16, "bold"),
             fill="white"
         )
         self.widgets.append(btn_text)

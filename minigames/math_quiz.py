@@ -3,6 +3,13 @@ import random
 import json
 import os
 
+try:
+    # Cargar Pillow para fondos aleatorios y ajuste de brillo
+    from PIL import Image, ImageTk, ImageEnhance  # type: ignore
+    HAS_PIL = True
+except Exception:
+    HAS_PIL = False
+
 class MathQuiz:
     """Quiz Matemtico - Versin mejorada"""
     def __init__(self, parent_window, callback):
@@ -41,6 +48,30 @@ class MathQuiz:
         self.canvas.bind("<B1-Motion>", self._drag)
         
         self.widgets = []
+
+        # Fondo aleatorio: selecciona una imagen que comience por "fran" y oscurece
+        self.bg_photo = None
+        if HAS_PIL:
+            bg_dir = os.path.join("assets", "custom")
+            try:
+                fran_files = [f for f in os.listdir(bg_dir) if f.lower().startswith("fran") and f.lower().endswith((".png", ".gif"))]
+            except Exception:
+                fran_files = []
+            if fran_files:
+                chosen = random.choice(fran_files)
+                path = os.path.join(bg_dir, chosen)
+                try:
+                    img = Image.open(path)
+                    try:
+                        img = img.convert("RGBA")
+                    except Exception:
+                        pass
+                    img = img.resize((700, 500), Image.Resampling.LANCZOS)
+                    enhancer = ImageEnhance.Brightness(img)
+                    img = enhancer.enhance(0.7)
+                    self.bg_photo = ImageTk.PhotoImage(img)
+                except Exception:
+                    self.bg_photo = None
     
     def _start_drag(self, event):
         self._drag_data = {"x": event.x, "y": event.y}
@@ -76,7 +107,12 @@ class MathQuiz:
         w, h = self.canvas.winfo_width(), self.canvas.winfo_height()
         cx, cy = w // 2, h // 2
         
-        # Ttulo
+        # Dibujar fondo si está disponible
+        if getattr(self, 'bg_photo', None):
+            bg_id = self.canvas.create_image(0, 0, anchor="nw", image=self.bg_photo)
+            self.widgets.append(bg_id)
+
+        # Título
         self.widgets.append(self.canvas.create_text(
             cx, cy - 160,
             text="QUIZ MATEMATICO",
@@ -98,7 +134,7 @@ Necesitas 5 correctas para ganar"""
         # Botn comenzar
         btn_rect = self.canvas.create_rectangle(
             cx - 100, cy + 120, cx + 100, cy + 170,
-            fill="#4CAF50", outline="white", width=3)
+            fill="#6e6e6e", outline="white", width=3)
         self.widgets.append(btn_rect)
         
         btn_text = self.canvas.create_text(
@@ -118,6 +154,10 @@ Necesitas 5 correctas para ganar"""
             return
         
         self._clear_widgets()
+        # Dibujar fondo
+        if getattr(self, 'bg_photo', None):
+            bg_id = self.canvas.create_image(0, 0, anchor="nw", image=self.bg_photo)
+            self.widgets.append(bg_id)
         self.answer_given = False
         
         w, h = self.canvas.winfo_width(), self.canvas.winfo_height()
@@ -233,6 +273,10 @@ Necesitas 5 correctas para ganar"""
             return
         
         self._clear_widgets()
+        # Dibujar fondo en la pantalla final si está disponible
+        if getattr(self, 'bg_photo', None):
+            bg_id = self.canvas.create_image(0, 0, anchor="nw", image=self.bg_photo)
+            self.widgets.append(bg_id)
         
         w, h = self.canvas.winfo_width(), self.canvas.winfo_height()
         cx, cy = w // 2, h // 2
@@ -276,10 +320,10 @@ Necesitas 5 correctas para ganar"""
             font=("Arial", 14),
             fill="#FFD700"))
         
-        # Botn continuar
+        # Botón continuar gris
         btn_rect = self.canvas.create_rectangle(
             cx - 100, cy + 100, cx + 100, cy + 150,
-            fill="#2196F3", outline="white", width=3)
+            fill="#6e6e6e", outline="white", width=3)
         self.widgets.append(btn_rect)
         
         btn_text = self.canvas.create_text(

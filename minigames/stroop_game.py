@@ -1,5 +1,13 @@
 import tkinter as tk
 import random
+import os
+
+try:
+    # Importe opcional para fondos y ajuste de brillo
+    from PIL import Image, ImageTk, ImageEnhance  # type: ignore
+    HAS_PIL = True
+except Exception:
+    HAS_PIL = False
 
 class StroopGame:
     """Test de Stroop - Palabra en color diferente"""
@@ -46,6 +54,30 @@ class StroopGame:
         self.canvas.bind("<Button-1>", self._start_drag)
         self.canvas.bind("<B1-Motion>", self._drag)
         self.widgets = []
+
+        # Fondo aleatorio
+        self.bg_photo = None
+        if HAS_PIL:
+            bg_dir = os.path.join("assets", "custom")
+            try:
+                fran_files = [f for f in os.listdir(bg_dir) if f.lower().startswith("fran") and f.lower().endswith((".png", ".gif"))]
+            except Exception:
+                fran_files = []
+            if fran_files:
+                chosen = random.choice(fran_files)
+                path = os.path.join(bg_dir, chosen)
+                try:
+                    img = Image.open(path)
+                    try:
+                        img = img.convert("RGBA")
+                    except Exception:
+                        pass
+                    img = img.resize((700, 500), Image.Resampling.LANCZOS)
+                    enhancer = ImageEnhance.Brightness(img)
+                    img = enhancer.enhance(0.7)
+                    self.bg_photo = ImageTk.PhotoImage(img)
+                except Exception:
+                    self.bg_photo = None
     
     def _start_drag(self, event):
         self._drag_data = {"x": event.x, "y": event.y}
@@ -61,6 +93,10 @@ class StroopGame:
     
     def _show_instructions(self):
         self._clear_widgets()
+        # Fondo de instrucciones
+        if getattr(self, 'bg_photo', None):
+            bg_id = self.canvas.create_image(0, 0, anchor="nw", image=self.bg_photo)
+            self.widgets.append(bg_id)
         w, h = self.canvas.winfo_width(), self.canvas.winfo_height()
         cx, cy = w // 2, h // 2
         
@@ -72,7 +108,8 @@ class StroopGame:
         self.widgets.append(self.canvas.create_text(
             cx, cy, text=inst, font=("Arial", 12), fill="yellow", justify="center"))
         
-        btn_rect = self.canvas.create_rectangle(cx - 80, cy + 100, cx + 80, cy + 150, fill="#4CAF50")
+        # Botón gris
+        btn_rect = self.canvas.create_rectangle(cx - 80, cy + 100, cx + 80, cy + 150, fill="#6e6e6e")
         btn_text = self.canvas.create_text(cx, cy + 125, text="COMENZAR", font=("Arial", 14, "bold"), fill="white")
         self.widgets.extend([btn_rect, btn_text])
         
@@ -157,6 +194,10 @@ class StroopGame:
         if self.game_closed:
             return
         self._clear_widgets()
+        # Fondo en pantalla final
+        if getattr(self, 'bg_photo', None):
+            bg_id = self.canvas.create_image(0, 0, anchor="nw", image=self.bg_photo)
+            self.widgets.append(bg_id)
         
         cx, cy = self.canvas.winfo_width() // 2, self.canvas.winfo_height() // 2
         won = self.correct_count >= 7
@@ -170,7 +211,8 @@ class StroopGame:
             cx, cy, text=f"Aciertos: {self.correct_count} / {self.rounds}", 
             font=("Arial", 16), fill="white"))
         
-        btn_rect = self.canvas.create_rectangle(cx - 70, cy + 60, cx + 70, cy + 100, fill="#2196F3")
+        # Botón gris
+        btn_rect = self.canvas.create_rectangle(cx - 70, cy + 60, cx + 70, cy + 100, fill="#6e6e6e")
         btn_text = self.canvas.create_text(cx, cy + 80, text="CONTINUAR", font=("Arial", 12, "bold"), fill="white")
         self.widgets.extend([btn_rect, btn_text])
         

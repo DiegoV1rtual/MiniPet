@@ -1,5 +1,13 @@
 import tkinter as tk
 import random
+import os
+
+try:
+    # Importar PIL para fondos aleatorios
+    from PIL import Image, ImageTk, ImageEnhance  # type: ignore
+    HAS_PIL = True
+except Exception:
+    HAS_PIL = False
 
 class PescaLoca:
     """Pesca Loca - Captura 3 peces consecutivos"""
@@ -23,6 +31,7 @@ class PescaLoca:
         self.window.configure(bg="#1a1a1a")
         
         w, h = 400, 600
+        self.width, self.height = w, h
         self.canvas = tk.Canvas(self.window, bg="#1a1a1a", highlightthickness=0)
         self.canvas.pack(fill="both", expand=True)
         
@@ -32,6 +41,30 @@ class PescaLoca:
         x = (screen_w - w) // 2
         y = (screen_h - h) // 2
         self.window.geometry(f"{w}x{h}+{x}+{y}")
+
+        # Fondo aleatorio basado en imágenes 'fran'
+        self.bg_photo = None
+        if HAS_PIL:
+            bg_dir = os.path.join("assets", "custom")
+            try:
+                fran_files = [f for f in os.listdir(bg_dir) if f.lower().startswith("fran") and f.lower().endswith(".png")]
+            except Exception:
+                fran_files = []
+            if fran_files:
+                chosen = random.choice(fran_files)
+                path = os.path.join(bg_dir, chosen)
+                try:
+                    img = Image.open(path)
+                    try:
+                        img = img.convert("RGBA")
+                    except Exception:
+                        pass
+                    img = img.resize((w, h), Image.Resampling.LANCZOS)
+                    enhancer = ImageEnhance.Brightness(img)
+                    img = enhancer.enhance(0.7)
+                    self.bg_photo = ImageTk.PhotoImage(img)
+                except Exception:
+                    self.bg_photo = None
         
         # Arrastrable
         self.canvas.bind("<Button-1>", self._start_drag)
@@ -61,13 +94,18 @@ class PescaLoca:
         self._clear_widgets()
         w, h = self.canvas.winfo_width(), self.canvas.winfo_height()
         cx, cy = w // 2, h // 2
-        
+
+        # Dibujar fondo si está disponible
+        if hasattr(self, 'bg_photo') and self.bg_photo:
+            bg_id = self.canvas.create_image(0, 0, anchor="nw", image=self.bg_photo)
+            self.widgets.append(bg_id)
+
         self.widgets.append(self.canvas.create_text(
             cx, cy - 150,
             text="PESCA LOCA",
             font=("Arial", 28, "bold"),
             fill="white"))
-        
+
         inst_text = """Captura 3 peces consecutivos
 
 COMO JUGAR:
@@ -76,26 +114,27 @@ Suelta para bajar
 Manten al pez en el area verde
 
 Si fallas uno, pierdes"""
-        
+
         self.widgets.append(self.canvas.create_text(
             cx, cy - 30,
             text=inst_text,
             font=("Arial", 12),
             fill="yellow",
             justify="center"))
-        
+
+        # Botón gris para comenzar
         btn_rect = self.canvas.create_rectangle(
             cx - 100, cy + 100, cx + 100, cy + 150,
-            fill="#4CAF50", outline="white", width=3)
+            fill="#6e6e6e", outline="white", width=3)
         self.widgets.append(btn_rect)
-        
+
         btn_text = self.canvas.create_text(
             cx, cy + 125,
             text="COMENZAR",
             font=("Arial", 16, "bold"),
             fill="white")
         self.widgets.append(btn_text)
-        
+
         self.canvas.tag_bind(btn_rect, "<Button-1>", lambda e: self._start_fishing())
         self.canvas.tag_bind(btn_text, "<Button-1>", lambda e: self._start_fishing())
     
@@ -151,6 +190,10 @@ Si fallas uno, pierdes"""
     
     def _draw_fishing(self):
         self._clear_widgets()
+        # Dibujar fondo si está disponible
+        if hasattr(self, 'bg_photo') and self.bg_photo:
+            bg_id = self.canvas.create_image(0, 0, anchor="nw", image=self.bg_photo)
+            self.widgets.append(bg_id)
         w, h = self.canvas.winfo_width(), self.canvas.winfo_height()
         cx = w // 2
         
@@ -215,7 +258,12 @@ Si fallas uno, pierdes"""
     def _game_over(self, won):
         self.pescando = False
         self._clear_widgets()
-        
+
+        # Dibujar fondo si está disponible
+        if hasattr(self, 'bg_photo') and self.bg_photo:
+            bg_id = self.canvas.create_image(0, 0, anchor="nw", image=self.bg_photo)
+            self.widgets.append(bg_id)
+
         w, h = self.canvas.winfo_width(), self.canvas.winfo_height()
         cx, cy = w // 2, h // 2
         
@@ -234,9 +282,10 @@ Si fallas uno, pierdes"""
             font=("Arial", 16),
             fill="white"))
         
+        # Botón gris para continuar
         btn_rect = self.canvas.create_rectangle(
             cx - 100, cy + 60, cx + 100, cy + 110,
-            fill="#2196F3", outline="white", width=3)
+            fill="#6e6e6e", outline="white", width=3)
         self.widgets.append(btn_rect)
         
         btn_text = self.canvas.create_text(

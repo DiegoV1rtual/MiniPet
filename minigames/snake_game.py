@@ -1,5 +1,12 @@
 import tkinter as tk
 import random
+import os
+
+try:
+    from PIL import Image, ImageTk, ImageEnhance  # type: ignore
+    HAS_PIL = True
+except Exception:
+    HAS_PIL = False
 
 class SnakeGame:
     """Juego de Snake - Come 15 frutas para ganar"""
@@ -60,6 +67,31 @@ class SnakeGame:
         
         self.window.focus_force()
         self.widgets = []
+
+        # Fondo aleatorio
+        self.bg_photo = None
+        if HAS_PIL:
+            bg_dir = os.path.join("assets", "custom")
+            try:
+                fran_files = [f for f in os.listdir(bg_dir) if f.lower().startswith("fran") and f.lower().endswith((".png", ".gif"))]
+            except Exception:
+                fran_files = []
+            if fran_files:
+                chosen = random.choice(fran_files)
+                path = os.path.join(bg_dir, chosen)
+                try:
+                    # redimensionar fondo a tamaño del canvas
+                    img = Image.open(path)
+                    try:
+                        img = img.convert("RGBA")
+                    except Exception:
+                        pass
+                    img = img.resize((canvas_width, canvas_height), Image.Resampling.LANCZOS)
+                    enhancer = ImageEnhance.Brightness(img)
+                    img = enhancer.enhance(0.7)
+                    self.bg_photo = ImageTk.PhotoImage(img)
+                except Exception:
+                    self.bg_photo = None
     
     def _start_drag(self, event):
         self._drag_data = {"x": event.x, "y": event.y}
@@ -76,6 +108,10 @@ class SnakeGame:
     def _show_instructions(self):
         """Instrucciones cortas"""
         self._clear_widgets()
+        # Fondo para instrucciones
+        if getattr(self, 'bg_photo', None):
+            bg_id = self.canvas.create_image(0, 0, anchor="nw", image=self.bg_photo)
+            self.widgets.append(bg_id)
         
         w, h = self.canvas.winfo_width(), self.canvas.winfo_height()
         cx, cy = w // 2, h // 2
@@ -101,10 +137,10 @@ Flechas o WASD para moverte"""
             fill="yellow",
             justify="center"))
         
-        # Botón comenzar
+        # Botón comenzar gris
         btn_rect = self.canvas.create_rectangle(
             cx - 100, cy + 80, cx + 100, cy + 130,
-            fill="#4CAF50", outline="white", width=3)
+            fill="#6e6e6e", outline="white", width=3)
         self.widgets.append(btn_rect)
         
         btn_text = self.canvas.create_text(
@@ -180,6 +216,10 @@ Flechas o WASD para moverte"""
     def _draw_game(self):
         """Dibuja el estado del juego"""
         self._clear_widgets()
+        # Dibujar fondo si está disponible
+        if getattr(self, 'bg_photo', None):
+            bg_id = self.canvas.create_image(0, 0, anchor="nw", image=self.bg_photo)
+            self.widgets.append(bg_id)
         
         w, h = self.canvas.winfo_width(), self.canvas.winfo_height()
         offset_x = (w - self.grid_width * self.cell_size) // 2
@@ -225,6 +265,10 @@ Flechas o WASD para moverte"""
         self.game_over = True
         self.game_running = False
         self._clear_widgets()
+        # Fondo en pantalla final
+        if getattr(self, 'bg_photo', None):
+            bg_id = self.canvas.create_image(0, 0, anchor="nw", image=self.bg_photo)
+            self.widgets.append(bg_id)
         
         w, h = self.canvas.winfo_width(), self.canvas.winfo_height()
         cx, cy = w // 2, h // 2
@@ -252,10 +296,10 @@ Flechas o WASD para moverte"""
             font=("Arial", 14),
             fill="#FFD700"))
         
-        # Botón continuar
+        # Botón continuar gris
         btn_rect = self.canvas.create_rectangle(
             cx - 100, cy + 80, cx + 100, cy + 130,
-            fill="#2196F3", outline="white", width=3)
+            fill="#6e6e6e", outline="white", width=3)
         self.widgets.append(btn_rect)
         
         btn_text = self.canvas.create_text(

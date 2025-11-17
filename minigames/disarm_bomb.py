@@ -17,7 +17,8 @@ import time
 import os
 
 try:
-    from PIL import Image, ImageTk  # type: ignore
+    # Import ImageEnhance to allow dimming of backgrounds.
+    from PIL import Image, ImageTk, ImageEnhance  # type: ignore
     HAS_PIL = True
 except Exception:
     HAS_PIL = False
@@ -29,8 +30,8 @@ class DisarmBomb:
     def __init__(self, parent_window: tk.Tk, callback) -> None:
         self.callback = callback
         self.game_closed = False
-        # Configuración de rondas y secuencias
-        self.sequence_lengths = [3, 4, 6]
+        # Configuración de rondas y secuencias: aumentamos a 5 rondas con longitudes crecientes
+        self.sequence_lengths = [3, 4, 5, 6, 7]
         self.current_round = 0
         self.sequence = []
         self.user_input = []
@@ -59,25 +60,36 @@ class DisarmBomb:
 
         # Fondo
         self.bg_photo = None
-        # Usar una imagen de fondo genérica 'fondo5.png'.
-        bg_path = os.path.join("assets", "custom", "fondo5.png")
-        if HAS_PIL and os.path.exists(bg_path):
+        # Selecciona aleatoriamente una imagen 'fran' y oscurece ligeramente la imagen para reducir el contraste.
+        if HAS_PIL:
+            bg_dir = os.path.join("assets", "custom")
             try:
-                img = Image.open(bg_path)
-                img = img.resize((self.width, self.height), Image.Resampling.LANCZOS)
-                self.bg_photo = ImageTk.PhotoImage(img)
+                fran_files = [f for f in os.listdir(bg_dir) if f.lower().startswith("fran") and f.lower().endswith((".png", ".gif"))]
             except Exception:
-                self.bg_photo = None
+                fran_files = []
+            if fran_files:
+                chosen = random.choice(fran_files)
+                image_path = os.path.join(bg_dir, chosen)
+                try:
+                    img = Image.open(image_path)
+                    try:
+                        img = img.convert("RGBA")
+                    except Exception:
+                        pass
+                    img = img.resize((self.width, self.height), Image.Resampling.LANCZOS)
+                    enhancer = ImageEnhance.Brightness(img)
+                    img = enhancer.enhance(0.7)
+                    self.bg_photo = ImageTk.PhotoImage(img)
+                except Exception:
+                    self.bg_photo = None
 
-        # Conjunto de botones posibles
-        self.available_buttons = ["Up", "Down", "Left", "Right", "A", "B"]
+        # Conjunto de botones posibles (solo flechas para mayor dificultad)
+        self.available_buttons = ["Up", "Down", "Left", "Right"]
         self.symbol_map = {
             "Up": "↑",
             "Down": "↓",
             "Left": "←",
-            "Right": "→",
-            "A": "A",
-            "B": "B"
+            "Right": "→"
         }
 
         # Widgets
@@ -103,33 +115,35 @@ class DisarmBomb:
         if self.bg_photo:
             bg_id = self.canvas.create_image(0, 0, anchor="nw", image=self.bg_photo)
             self.widgets.append(bg_id)
+        # Título con fuente manuscrita para un estilo más llamativo
         self.widgets.append(self.canvas.create_text(
             cx, cy - 100,
             text="DESACTIVA LA BOMBA",
-            font=("Arial", 28, "bold"),
+            font=("Comic Sans MS", 28, "bold"),
             fill="white"
         ))
         inst_text = (
-            "Memoriza la secuencia de botones y repítela correctamente antes de que acabe el tiempo.\n"
-            "Las combinaciones pueden incluir las flechas ↑ ↓ ← → y las letras A y B del teclado.\n"
+            "Memoriza la secuencia de flechas y repítela correctamente antes de que acabe el tiempo.\n"
+            "Las combinaciones solo incluyen las flechas ↑ ↓ ← →; no hay letras en este modo difícil.\n"
             "La secuencia se alarga cada ronda; fallar una vez implica perder."
         )
         self.widgets.append(self.canvas.create_text(
             cx, cy,
             text=inst_text,
-            font=("Arial", 13),
+            font=("Comic Sans MS", 13),
             fill="yellow",
             justify="center"
         ))
+        # Botón gris en la pantalla de instrucciones
         btn_rect = self.canvas.create_rectangle(
             cx - 100, cy + 80, cx + 100, cy + 130,
-            fill="#4CAF50", outline="white", width=3
+            fill="#6e6e6e", outline="white", width=3
         )
         self.widgets.append(btn_rect)
         btn_text = self.canvas.create_text(
             cx, cy + 105,
             text="COMENZAR",
-            font=("Arial", 16, "bold"),
+            font=("Comic Sans MS", 16, "bold"),
             fill="white"
         )
         self.widgets.append(btn_text)
@@ -163,23 +177,24 @@ class DisarmBomb:
         self.widgets.append(self.canvas.create_text(
             cx, 40,
             text=f"Ronda {self.current_round}/{len(self.sequence_lengths)}",
-            font=("Arial", 16, "bold"),
+            font=("Comic Sans MS", 16, "bold"),
             fill="white"
         ))
         # Mostrar secuencia como símbolos centrados
         symbols = [self.symbol_map[b] for b in self.sequence]
         seq_text = " ".join(symbols)
+        # Secuencia en fuente grande y negrita para mayor visibilidad
         self.widgets.append(self.canvas.create_text(
             cx, self.height // 2,
             text=seq_text,
-            font=("Arial", 32, "bold"),
+            font=("Comic Sans MS", 50, "bold"),
             fill="#FFEB3B"
         ))
         # Mostrar instrucciones para no interactuar
         self.widgets.append(self.canvas.create_text(
             cx, self.height - 60,
             text="Memoriza la secuencia...",
-            font=("Arial", 14),
+            font=("Comic Sans MS", 14),
             fill="#CCCCCC"
         ))
         # Ocultar secuencia después de 2 segundos y permitir entrada
@@ -197,13 +212,13 @@ class DisarmBomb:
         self.widgets.append(self.canvas.create_text(
             cx, 40,
             text=f"Ronda {self.current_round}/{len(self.sequence_lengths)}",
-            font=("Arial", 16, "bold"),
+            font=("Comic Sans MS", 16, "bold"),
             fill="white"
         ))
         self.widgets.append(self.canvas.create_text(
             cx, self.height // 2,
             text="Introduce la secuencia",
-            font=("Arial", 20, "bold"),
+            font=("Comic Sans MS", 22, "bold"),
             fill="#FFEB3B"
         ))
         # Reset user input
@@ -246,7 +261,7 @@ class DisarmBomb:
         self.canvas.create_text(
             cx, self.height // 2 + 40,
             text=seq_text,
-            font=("Arial", 24, "bold"),
+            font=("Comic Sans MS", 24, "bold"),
             fill="#00FF00",
             tag="input_text"
         )
@@ -264,25 +279,26 @@ class DisarmBomb:
         self.widgets.append(self.canvas.create_text(
             cx, cy - 60,
             text=result_text,
-            font=("Arial", 36, "bold"),
+            font=("Comic Sans MS", 36, "bold"),
             fill=result_color
         ))
         msg = "Has desactivado la bomba" if won else "La bomba explotó"
         self.widgets.append(self.canvas.create_text(
             cx, cy,
             text=msg,
-            font=("Arial", 16),
+            font=("Comic Sans MS", 18),
             fill="white"
         ))
+        # Botón gris en pantalla final
         btn_rect = self.canvas.create_rectangle(
             cx - 100, cy + 60, cx + 100, cy + 110,
-            fill="#2196F3", outline="white", width=3
+            fill="#6e6e6e", outline="white", width=3
         )
         self.widgets.append(btn_rect)
         btn_text = self.canvas.create_text(
             cx, cy + 85,
             text="CONTINUAR",
-            font=("Arial", 16, "bold"),
+            font=("Comic Sans MS", 18, "bold"),
             fill="white"
         )
         self.widgets.append(btn_text)

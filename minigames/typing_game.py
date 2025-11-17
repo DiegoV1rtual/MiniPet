@@ -20,7 +20,8 @@ import time
 import os
 
 try:
-    from PIL import Image, ImageTk  # type: ignore
+    # Import ImageEnhance for adjusting background brightness.
+    from PIL import Image, ImageTk, ImageEnhance  # type: ignore
     HAS_PIL = True
 except Exception:
     HAS_PIL = False
@@ -33,13 +34,22 @@ class TypingGame:
         self.callback = callback
         self.game_closed = False
         # Configuration
+        # Lista de palabras que se mostrarán en el minijuego.
+        # Se han añadido términos actuales y memes de la época para mayor diversidad.
         self.words = [
             "python", "mascota", "teclado", "pantalla", "comida",
             "felicidad", "higiene", "dormir", "hambriento", "juego",
-            "ventana", "programacion", "minijuego", "sorpresa", "rapido"
+            "ventana", "programacion", "minijuego", "sorpresa", "rapido",
+            # Nuevas palabras y expresiones modernas
+            "seis-siete", "brainrot", "tun tun tun sahur", "rizzler", "skibidi",
+            "aura farming", "mostaza", "walmart", "diddy", "dalasito",
+            "pambisito", "skibidi rizz", "cade", "five night whit my tio alfredo",
+            "francisco", "sigma", "¿tienes 14? activa cam", "alexgaimer", "enrique",
+            "guillemo carrion", "zona gemelos", "bujarra", "diego el mejor", "gooner"
         ]
-        self.num_rounds = 5
-        self.required_successes = 4
+        # Aumenta el número de rondas y la dificultad
+        self.num_rounds = 8
+        self.required_successes = 6
         self.current_round = 0
         self.successes = 0
         self.current_word = ""
@@ -67,17 +77,29 @@ class TypingGame:
         self.canvas.bind("<Button-1>", self._start_drag)
         self.canvas.bind("<B1-Motion>", self._drag)
 
-        # Attempt to load a background image
+        # Attempt to load a random 'fran' background and darken it slightly.
         self.bg_photo = None
-        # Usar una imagen de fondo genérica 'fondo2.png'.
-        bg_path = os.path.join("assets", "custom", "fondo2.png")
-        if HAS_PIL and os.path.exists(bg_path):
+        if HAS_PIL:
+            bg_dir = os.path.join("assets", "custom")
             try:
-                img = Image.open(bg_path)
-                img = img.resize((w, h), Image.Resampling.LANCZOS)
-                self.bg_photo = ImageTk.PhotoImage(img)
+                fran_files = [f for f in os.listdir(bg_dir) if f.lower().startswith("fran") and f.lower().endswith((".png", ".gif"))]
             except Exception:
-                self.bg_photo = None
+                fran_files = []
+            if fran_files:
+                chosen = random.choice(fran_files)
+                image_path = os.path.join(bg_dir, chosen)
+                try:
+                    img = Image.open(image_path)
+                    try:
+                        img = img.convert("RGBA")
+                    except Exception:
+                        pass
+                    img = img.resize((w, h), Image.Resampling.LANCZOS)
+                    enhancer = ImageEnhance.Brightness(img)
+                    img = enhancer.enhance(0.7)
+                    self.bg_photo = ImageTk.PhotoImage(img)
+                except Exception:
+                    self.bg_photo = None
 
         # Tracking drawn items
         self.widgets = []
@@ -103,10 +125,11 @@ class TypingGame:
         if self.bg_photo:
             bg_id = self.canvas.create_image(0, 0, anchor="nw", image=self.bg_photo)
             self.widgets.append(bg_id)
+        # Título con fuente manuscrita (Comic Sans) para un toque informal
         self.widgets.append(self.canvas.create_text(
             cx, cy - 100,
             text="JUEGO DE MECANOGRAFIA",
-            font=("Arial", 28, "bold"),
+            font=("Comic Sans MS", 28, "bold"),
             fill="white"
         ))
         inst_text = (
@@ -116,20 +139,21 @@ class TypingGame:
         self.widgets.append(self.canvas.create_text(
             cx, cy,
             text=inst_text,
-            font=("Arial", 13),
+            font=("Comic Sans MS", 13),
             fill="yellow",
             justify="center"
         ))
         # Start button
+        # Botón de inicio gris en vez de verde
         btn_rect = self.canvas.create_rectangle(
             cx - 100, cy + 80, cx + 100, cy + 130,
-            fill="#4CAF50", outline="white", width=3
+            fill="#6e6e6e", outline="white", width=3
         )
         self.widgets.append(btn_rect)
         btn_text = self.canvas.create_text(
             cx, cy + 105,
             text="COMENZAR",
-            font=("Arial", 16, "bold"),
+            font=("Comic Sans MS", 16, "bold"),
             fill="white"
         )
         self.widgets.append(btn_text)
@@ -223,14 +247,18 @@ class TypingGame:
         # Verificar cada pulsación de tecla para detectar errores inmediatamente
         entry.bind("<KeyRelease>", lambda e: self._on_keypress_check(entry))
         self.entry_widget = entry
-        # Timeout for this word (6 seconds)
-        # Cancel any previous timeout
+        # Timeout adaptativo: reduce el tiempo cada ronda para aumentar la dificultad.
+        # Cancelar cualquier timeout anterior
         if self.timeout_id is not None:
             try:
                 self.window.after_cancel(self.timeout_id)
             except Exception:
                 pass
-        self.timeout_id = self.window.after(6000, lambda: self._on_timeout(entry))
+        # El tiempo base es 6 segundos; se reduce 0,5 s por ronda (mínimo 3 s).
+        base = 6000
+        reduction = (self.current_round - 1) * 500
+        time_limit = max(3000, base - reduction)
+        self.timeout_id = self.window.after(time_limit, lambda: self._on_timeout(entry))
 
     def _check_input(self, entry: tk.Entry) -> None:
         # Prevent multiple submissions
@@ -291,9 +319,10 @@ class TypingGame:
             fill="white"
         ))
         # Continue button
+        # Botón gris en la pantalla final
         btn_rect = self.canvas.create_rectangle(
             cx - 100, cy + 60, cx + 100, cy + 110,
-            fill="#2196F3", outline="white", width=3
+            fill="#6e6e6e", outline="white", width=3
         )
         self.widgets.append(btn_rect)
         btn_text = self.canvas.create_text(
