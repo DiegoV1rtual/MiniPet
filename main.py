@@ -30,7 +30,7 @@ from minigames.express_race import ExpressRace
 # from minigames.space_invader import SpaceInvaderGame
 # Importamos solo los minijuegos permitidos.  Se eliminan AsteroidsGame, CasinoRouletteGame y PairsGame.
 from minigames.blackjack_game import BlackjackGame
-from minigames.qwer_hero import QWERHeroGame
+# Eliminamos la importación de QWERHeroGame (minijuego de guitarra).
 
 # Importaciones para audio y enlaces externos
 import webbrowser
@@ -44,22 +44,127 @@ except Exception:
     playsound = None
 
 
-# Utilidad para reproducir un sonido aleatorio de una carpeta.
+# Utilidad de reproducción de audio.
+
+# Implementación simple para reproducir sonido en varias plataformas sin abrir
+# un reproductor gráfico.  Esta función intenta usar bibliotecas o
+# utilidades del sistema para reproducir archivos de audio de forma
+# asíncrona.  Es una alternativa a la librería ``playsound`` cuando esta no
+# está disponible.
+def simple_play_sound(file_path: str) -> None:
+    import platform
+    import subprocess
+    import os
+    system = platform.system()
+    try:
+        if system == 'Windows':
+            # En Windows, usa winsound para WAV y la API MCI para otros
+            ext = os.path.splitext(file_path)[1].lower()
+            try:
+                import winsound  # type: ignore
+                if ext == '.wav':
+                    winsound.PlaySound(file_path, winsound.SND_FILENAME | winsound.SND_ASYNC)
+                    return
+            except Exception:
+                pass
+            # Para otros formatos (MP3, OGG, etc.), utiliza mciSendString
+            try:
+                import ctypes
+                from ctypes import wintypes  # type: ignore
+                # Construir comando open.  Utiliza alias único para evitar
+                # conflictos; se usa el nombre base del archivo como alias.
+                alias = 'media'
+                # Cerrar previamente cualquier alias con el mismo nombre
+                try:
+                    ctypes.windll.winmm.mciSendStringW(f'close {alias}', None, 0, None)
+                except Exception:
+                    pass
+                cmd_open = f'open "{file_path}" alias {alias}'
+                ctypes.windll.winmm.mciSendStringW(cmd_open, None, 0, None)
+                # Reproducir desde el principio de forma asíncrona
+                cmd_play = f'play {alias} from 0'
+                ctypes.windll.winmm.mciSendStringW(cmd_play, None, 0, None)
+                return
+            except Exception:
+                pass
+        elif system == 'Darwin':
+            # macOS incluye afplay para reproducir audio
+            subprocess.Popen(['afplay', file_path])
+            return
+        else:
+            # En sistemas Linux se puede utilizar aplay o paplay
+            # Intentar con aplay primero
+            try:
+                subprocess.Popen(['aplay', file_path])
+                return
+            except FileNotFoundError:
+                pass
+            # Intentar con paplay si aplay no existe
+            try:
+                subprocess.Popen(['paplay', file_path])
+                return
+            except FileNotFoundError:
+                pass
+    except Exception:
+        pass
+    # Si todo falla, no hacemos nada.  El llamador puede intentar con
+    # métodos alternativos o abrir el archivo en un reproductor.
+    return
 # Busca archivos con extensión .mp3, .wav u .ogg en la carpeta indicada y
 # reproduce uno al azar en un hilo aparte. Si no hay archivos o no está
 # disponible la biblioteca playsound, la función no hace nada.
 def play_random_sound(folder: str) -> None:
+    """
+    Reproduce un sonido aleatorio de una carpeta.  Se buscan archivos con
+    extensiones .mp3, .wav u .ogg.  Si la biblioteca playsound está
+    disponible, se utiliza para reproducir el sonido en un hilo
+    independiente.  En caso contrario, se intenta abrir el archivo
+    con el reproductor predeterminado del sistema operativo.
+    """
     try:
-        files = [f for f in os.listdir(folder) if f.lower().endswith((".mp3", ".wav", ".ogg"))]
+        # Determinar carpeta absoluta relativa a este archivo, si es relativa
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        full_folder = folder if os.path.isabs(folder) else os.path.join(base_dir, folder)
+        files = [f for f in os.listdir(full_folder) if f.lower().endswith((".mp3", ".wav", ".ogg"))]
         if not files:
             return
-        file_path = os.path.join(folder, random.choice(files))
+        file_path = os.path.join(full_folder, random.choice(files))
         def _play() -> None:
+            # Usar playsound si está disponible
+            # 1) Usar playsound si está disponible
             if playsound is not None:
                 try:
                     playsound(file_path)
+                    return
                 except Exception:
                     pass
+            # 2) Usar nuestra implementación simple basada en utilidades del sistema
+            try:
+                simple_play_sound(file_path)
+                return
+            except Exception:
+                pass
+            # 3) Abrir el archivo con el reproductor predeterminado (sólo si las
+            # opciones anteriores fallan).  Esto puede abrir una ventana del
+            # navegador, pero sirve como último recurso.
+            try:
+                import subprocess
+                import sys
+                if sys.platform.startswith('win'):
+                    os.startfile(file_path)  # type: ignore[attr-defined]
+                elif sys.platform == 'darwin':
+                    subprocess.Popen(['open', file_path])
+                else:
+                    subprocess.Popen(['xdg-open', file_path])
+                return
+            except Exception:
+                pass
+            # 4) Último recurso: abrir en navegador
+            try:
+                import webbrowser
+                webbrowser.open('file://' + file_path)
+            except Exception:
+                pass
         threading.Thread(target=_play, daemon=True).start()
     except Exception:
         pass
@@ -290,6 +395,9 @@ class MiniDiego:
     def __init__(self, root):
         self.root = root
         self.root.title("Cuidame Rebollo Rebollito !")
+        # Ajustamos el tamaño por defecto del panel de control.  Volvemos a
+        # un tamaño más compacto, ya que el usuario prefiere la distribución
+        # vertical original de las estadísticas.
         self.root.geometry("450x400")
         self.root.configure(bg="#2d2d2d")
         
@@ -368,11 +476,16 @@ class MiniDiego:
 
         # El modo pausa ha sido eliminado para que el juego se juegue de una sola vez.
         
-        # Frame para stats
+        # Contenedor para las estadísticas.  Utilizamos un layout horizontal para
+        # mostrar todas las estadísticas en una sola fila.  Cada columna
+        # contiene el botón (o etiqueta) y la barra de progreso debajo.
         stats_container = tk.Frame(self.root, bg="#2d2d2d")
-        stats_container.pack(fill="both", expand=True, padx=10, pady=5)
-        
-        # Crear estadísticas con botones NEGROS
+        # Para la distribución vertical de antes, empaquetamos el contenedor
+        # directamente sin expandir, manteniendo las filas una debajo de otra.
+        stats_container.pack(fill="x", padx=10, pady=5)
+
+        # Crear estadísticas con botones NEGROS.  Volvemos al método
+        # _create_stat_row que organiza cada estadística en una fila.
         self.stat_widgets = {}
         stats = [
             ("hambre", "Alimentar", "#FF6B6B", self.feed_pet),
@@ -380,7 +493,6 @@ class MiniDiego:
             ("higiene", "Duchar", "#95E1D3", self.shower_pet),
             ("felicidad", "Felicidad", "#FFE66D", None)
         ]
-        
         for stat_name, btn_text, color, command in stats:
             self._create_stat_row(stats_container, stat_name, btn_text, color, command)
         
@@ -434,6 +546,58 @@ class MiniDiego:
             bar.pack(side="left", padx=1)
             bars.append(bar)
         
+        self.stat_widgets[stat_name] = {'bars': bars, 'color': color}
+
+    def _create_stat_column(self, parent: tk.Frame, stat_name: str, btn_text: str, color: str, command) -> None:
+        """
+        Crea una columna en el panel de estadísticas.  Cada columna contiene
+        un botón o etiqueta en la parte superior y una barra de progreso
+        vertical debajo.  Esto permite colocar varias estadísticas una al
+        lado de la otra en el panel principal, ofreciendo un diseño más
+        horizontal en comparación con la distribución por filas.  El
+        parámetro ``command`` es la función que se invocará cuando el
+        usuario haga clic en el botón (por ejemplo, alimentar, dormir o
+        duchar).  Si ``command`` es ``None`` se muestra una etiqueta en
+        lugar de un botón.
+        """
+        # Contenedor para la columna
+        col_frame = tk.Frame(parent, bg="#2d2d2d")
+        col_frame.pack(side="left", fill="both", expand=True, padx=4, pady=2)
+
+        # Botón o etiqueta NEGRO en la parte superior
+        if command:
+            btn = tk.Button(col_frame, text=btn_text,
+                             command=command,
+                             font=("Arial", 10, "bold"), bg="#000000", fg="white",
+                             relief="raised", cursor="hand2", pady=4)
+            # Hacemos el botón lo suficientemente ancho para que el texto quepa
+            btn.pack(fill="x", padx=2, pady=(0, 6))
+
+            # Referencia al botón de sueño para cambiar su texto/color al dormir
+            if stat_name == "sueno":
+                self.sleep_button = btn
+        else:
+            lbl = tk.Label(col_frame, text=btn_text,
+                            font=("Arial", 10, "bold"), bg="#000000", fg="white",
+                            anchor="center", relief="raised", bd=2, pady=4)
+            lbl.pack(fill="x", padx=2, pady=(0, 6))
+
+        # Contenedor para las barras horizontales (dentro de un marco de borde)
+        bars_container = tk.Frame(col_frame, bg="#1a1a1a", relief="sunken", bd=2)
+        bars_container.pack(fill="both", expand=True, padx=2, pady=2)
+
+        bars_frame = tk.Frame(bars_container, bg="#1a1a1a")
+        bars_frame.pack(padx=3, pady=3)
+
+        # Crear 10 barras tipo barra de progreso horizontal
+        bars: list[tk.Label] = []
+        for i in range(10):
+            bar = tk.Label(bars_frame, text="█", font=("Arial", 12),
+                            bg="#1a1a1a", fg="#333", padx=0)
+            bar.pack(side="left", padx=1)
+            bars.append(bar)
+
+        # Almacenar barras para actualizar posteriormente
         self.stat_widgets[stat_name] = {'bars': bars, 'color': color}
     
     def update_display(self):
@@ -873,8 +1037,6 @@ class MiniDiego:
             ExpressRace,
             # Se elimina SpaceInvaderGame ya que no funciona correctamente
             BlackjackGame,
-            # Nuevo minijuego estilo Guitar Hero con teclas QWER
-            QWERHeroGame,
             # JumpClimb se elimina de la lista de minijuegos disponibles
         ]
         # Si se especifica un juego concreto se usará, en caso contrario se
@@ -1117,25 +1279,34 @@ class MiniDiego:
         
         admin_win = tk.Toplevel(self.root)
         admin_win.title("Panel Admin")
-        # Aumentamos el tamaño de la ventana para que quepan todas las opciones sin
-        # necesidad de estirar manualmente.  420x700 proporciona más espacio.
-        admin_win.geometry("420x700")
+        # Diseñamos una ventana más ancha que alta para disponer las opciones en
+        # tres columnas horizontales.  Esta dimensión evita que el usuario
+        # necesite estirar la ventana manualmente.
+        admin_win.geometry("800x500")
         admin_win.attributes("-topmost", True)
         admin_win.configure(bg="#1a1a1a")
-        
-        
-        tk.Label(admin_win, text="ADMIN",
-                font=("Comic Sans MS", 16, "bold"), bg="#1a1a1a", fg="white").pack(pady=15)
 
-        tk.Label(admin_win, text="Forzar minijuego:",
-                font=("Comic Sans MS", 12, "bold"), bg="#1a1a1a", fg="white").pack(pady=8)
-        
-        # Frame con scroll para los juegos
-        game_frame = tk.Frame(admin_win, bg="#1a1a1a")
-        game_frame.pack(pady=5)
-        
-        # Botones para forzar un minijuego específico.  Se incluyen todos los juegos
-        # disponibles.  El botón invoca launch_minigame con la clase correspondiente.
+        # Título principal
+        title_label = tk.Label(admin_win, text="ADMIN", font=("Comic Sans MS", 18, "bold"),
+                               bg="#1a1a1a", fg="white")
+        title_label.pack(pady=(10, 5))
+
+        # Contenedor horizontal para las diferentes secciones del panel
+        content_frame = tk.Frame(admin_win, bg="#1a1a1a")
+        content_frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+        # ------------------------------------------------------------------
+        # Columna de minijuegos
+        minigame_col = tk.Frame(content_frame, bg="#1a1a1a")
+        minigame_col.pack(side="left", fill="both", expand=True, padx=10)
+
+        # Etiqueta sección
+        tk.Label(minigame_col, text="Forzar minijuego:", font=("Comic Sans MS", 12, "bold"),
+                 bg="#1a1a1a", fg="white").pack(pady=(0, 8))
+        # Frame de botones de juegos
+        game_frame = tk.Frame(minigame_col, bg="#1a1a1a")
+        game_frame.pack(fill="both", expand=True)
+        # Lista de minijuegos disponibles en el panel admin
         admin_games = [
             ("Quiz", MathQuiz),
             ("Memoria", MemoryGame),
@@ -1148,33 +1319,46 @@ class MiniDiego:
             ("Desactiva Bomba", DisarmBomb),
             ("Cruza Calle", CrossRoad),
             ("Carrera Exprés", ExpressRace),
-            # Nuevos minijuegos añadidos (eliminamos Asteroides, Ruleta Casino y Parejas)
             ("Blackjack", BlackjackGame)
         ]
+        # Crear botón por cada juego
         for text, game_cls in admin_games:
-            tk.Button(game_frame, text=text, command=lambda cls=game_cls: self.launch_minigame(cls),
-                     width=28, bg="#2196F3", fg="white", font=("Comic Sans MS", 10, "bold")).pack(pady=2)
-        
-        tk.Frame(admin_win, height=2, bg="#555").pack(fill="x", pady=5)
-        
-        tk.Button(admin_win, text="FORZAR MINIJUEGO AHORA", 
+            tk.Button(game_frame, text=text,
+                     command=lambda cls=game_cls: self.launch_minigame(cls),
+                     width=18, bg="#2196F3", fg="white", font=("Comic Sans MS", 10, "bold"),
+                     wraplength=130, justify="center").pack(pady=2, fill="x")
+
+        # Botón para forzar minijuego aleatorio
+        tk.Button(minigame_col, text="FORZAR MINIJUEGO AHORA",
                  command=self.show_minigame_popup,
-                 width=28, bg="#FF9800", fg="white", 
-                 font=("Arial", 10, "bold")).pack(pady=8)
-        
-        tk.Frame(admin_win, height=2, bg="#555").pack(fill="x", pady=12)
-        
-        tk.Button(admin_win, text="Restaurar 100%", command=self.restore_stats, 
-                 width=28, bg="#4CAF50", fg="white", font=("Arial", 10, "bold")).pack(pady=6)
-        tk.Button(admin_win, text="Despertar", command=lambda: setattr(self, 'sleeping', False), 
-                 width=28, bg="#FF9800", fg="white", font=("Arial", 10)).pack(pady=6)
-        # Separador antes de la sección de sonidos
-        tk.Frame(admin_win, height=2, bg="#555").pack(fill="x", pady=6)
-        tk.Label(admin_win, text="Reproducir sonidos:",
-                 font=("Comic Sans MS", 12, "bold"), bg="#1a1a1a", fg="white").pack(pady=8)
-        # Botones para reproducir sonidos aleatorios de cada categoría.  Al hacer
-        # clic se selecciona un archivo al azar de la carpeta correspondiente y
-        # se reproduce mediante la función play_random_sound.
+                 width=18, bg="#FF9800", fg="white", font=("Arial", 10, "bold"),
+                 wraplength=130, justify="center").pack(pady=6, fill="x")
+
+        # ------------------------------------------------------------------
+        # Columna de acciones de control (restaurar, despertar, salir)
+        control_col = tk.Frame(content_frame, bg="#1a1a1a")
+        control_col.pack(side="left", fill="both", expand=True, padx=10)
+
+        tk.Label(control_col, text="Acciones:", font=("Comic Sans MS", 12, "bold"),
+                 bg="#1a1a1a", fg="white").pack(pady=(0, 8))
+        # Restaurar estadísticas
+        tk.Button(control_col, text="Restaurar 100%", command=self.restore_stats,
+                 width=18, bg="#4CAF50", fg="white", font=("Arial", 10, "bold")).pack(pady=4, fill="x")
+        # Despertar mascota
+        tk.Button(control_col, text="Despertar", command=lambda: setattr(self, 'sleeping', False),
+                 width=18, bg="#FF9800", fg="white", font=("Arial", 10, "bold")).pack(pady=4, fill="x")
+        # Salir del programa
+        tk.Button(control_col, text="SALIR", command=self.root.quit,
+                 width=18, bg="#f44336", fg="white", font=("Arial", 10, "bold")).pack(pady=4, fill="x")
+
+        # ------------------------------------------------------------------
+        # Columna de reproducción de sonidos
+        sound_col = tk.Frame(content_frame, bg="#1a1a1a")
+        sound_col.pack(side="left", fill="both", expand=True, padx=10)
+
+        tk.Label(sound_col, text="Reproducir sonidos:", font=("Comic Sans MS", 12, "bold"),
+                 bg="#1a1a1a", fg="white").pack(pady=(0, 8))
+
         sound_buttons = [
             ("Hablar despierto", "awake"),
             ("Comer", "eat"),
@@ -1186,13 +1370,10 @@ class MiniDiego:
             ("Muerte", "death")
         ]
         for text, folder in sound_buttons:
-            tk.Button(admin_win, text=text,
+            tk.Button(sound_col, text=text,
                      command=lambda f=folder: play_random_sound(os.path.join("assets", "sounds", f)),
-                     width=28, bg="#9C27B0", fg="white", font=("Arial", 10, "bold")).pack(pady=2)
-        # Botón para salir al final
-        tk.Frame(admin_win, height=2, bg="#555").pack(fill="x", pady=6)
-        tk.Button(admin_win, text="SALIR", command=self.root.quit,
-                 width=28, bg="#f44336", fg="white", font=("Arial", 10, "bold")).pack(pady=6)
+                     width=18, bg="#9C27B0", fg="white", font=("Arial", 10, "bold"),
+                     wraplength=130, justify="center").pack(pady=2, fill="x")
     
     def restore_stats(self):
         """Restaurar stats"""

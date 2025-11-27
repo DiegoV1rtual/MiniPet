@@ -59,12 +59,14 @@ class QWERHeroGame:
         # Tiempo que tarda una nota en recorrer de arriba abajo.  Con una
         # pantalla más alta, mantenemos una velocidad similar.
         self.note_speed_ms = 3000
-        # Ventana de acierto más estrecha para mayor precisión
-        self.hit_window_px = 30
-        # Patrón de canción: secuencia repetitiva de notas QWER.  Se repite
-        # suficientes veces para cubrir aproximadamente un minuto.  Cada
-        # elemento de la lista representa la tecla que debe tocarse.
-        self.pattern = ['q', 'w', 'e', 'r'] * 20  # 80 notas en total
+        # Ventana de acierto: el jugador debe pulsar cuando el centro de la
+        # nota esté muy cerca de la línea de golpeo.  Ajustamos a un
+        # valor más estricto para que sea necesario mayor precisión.
+        self.hit_window_px = 20
+        # Patrón de la canción: para dar una sensación de melodía sencilla
+        # y variada, alternamos secuencias Q-W-E-W-Q-R-E-R y la repetimos
+        # suficientes veces para cubrir alrededor de un minuto (80 notas).
+        self.pattern = ['q', 'w', 'e', 'w', 'q', 'r', 'e', 'r'] * 10
         # Número total de notas generadas durante la partida
         self.total_notes = len(self.pattern)
 

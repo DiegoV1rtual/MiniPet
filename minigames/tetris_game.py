@@ -9,7 +9,23 @@ except Exception:
     HAS_PIL = False
 
 class TetrisGame:
-    """Tetris - Llega a 500 puntos para ganar"""
+    """
+    Tetris - Llega a 1000 puntos para ganar.
+
+    Este minijuego consiste en el Tetris clásico: el jugador debe completar
+    líneas con las piezas que caen.  Cada línea completada otorga puntos;
+    completar varias líneas a la vez genera un puntaje mayor según el
+    siguiente esquema:
+
+    - 1 línea completada: 100 puntos
+    - 2 líneas a la vez: 300 puntos
+    - 3 líneas a la vez: 500 puntos
+    - 4 líneas a la vez (Tetris): 800 puntos
+
+    El objetivo es alcanzar al menos 1000 puntos antes de que las piezas
+    se acumulen hasta la parte superior del tablero.  Al lograrlo,
+    el jugador gana el minijuego.
+    """
     def __init__(self, parent_window, callback):
         self.callback = callback
         self.game_closed = False
@@ -19,8 +35,8 @@ class TetrisGame:
         self.grid_width = 10
         self.grid_height = 20
         self.score = 0
-        # Puntaje objetivo: se gana al alcanzar 2000 puntos
-        self.target_score = 2000
+        # Puntaje objetivo: se gana al alcanzar 1000 puntos
+        self.target_score = 1000
         self.level = 1
         self.lines_cleared = 0
         self.game_over = False
@@ -143,7 +159,7 @@ class TetrisGame:
             font=("Arial", 28, "bold"),
             fill="white"))
         
-        inst_text = """Llega a 2000 puntos para ganar
+        inst_text = """Llega a 1000 puntos para ganar
 
 CONTROLES:
 Flechas: Mover y rotar
@@ -192,7 +208,11 @@ PUNTUACION:
         self.current_y = 0
         
         if self._check_collision(self.current_x, self.current_y):
+            # Si hay colisión al generar una nueva pieza, el juego ha llegado
+            # hasta arriba.  Consideramos la partida terminada y
+            # detenemos el bucle.
             self.game_over = True
+            self.game_running = False
             self._game_over_screen()
     
     def _check_collision(self, x, y):
