@@ -1,8 +1,10 @@
 # Configuración del juego Mini-Diego
 
 # Intervalos de tiempo (en segundos)
-EVENT_INTERVAL_MIN = 3600
-EVENT_INTERVAL_MAX = 7200
+# Ajustes de tiempo para la versión de 24 horas.
+# Los minijuegos aparecen cada 15 minutos independientemente de otras condiciones.
+EVENT_INTERVAL_MIN = 900
+EVENT_INTERVAL_MAX = 900
 POPUP_RESPONSE_TIMEOUT = 60
 MINIGAME_ANSWER_TIMEOUT = 6
 
@@ -10,9 +12,11 @@ MINIGAME_ANSWER_TIMEOUT = 6
 ADMIN_CODE = "admin123"
 
 # Desgaste de estadísticas
-HUNGER_DECAY_PER_HOUR = 5
-SLEEP_DECAY_PER_HOUR = 15
-HYGIENE_DECAY_PER_2HOURS = 10
+# Incrementamos el desgaste de estadísticas para que el juego de 24h siga siendo desafiante.
+# Multiplicamos los valores originales por ~7 (168h/24h) para mantener la dificultad.
+HUNGER_DECAY_PER_HOUR = 35
+SLEEP_DECAY_PER_HOUR = 105
+HYGIENE_DECAY_PER_2HOURS = 70
 SLEEP_DECAY_REDUCTION = 0.80
 
 # Sistema de sueño por MINUTO
@@ -46,7 +50,10 @@ PET_MOVE_MIN_INTERVAL = 8
 PET_MOVE_MAX_INTERVAL = 20
 
 # Pausa
-PAUSE_TIME_LIMIT = 7 * 3600
+# La funcionalidad de pausa se ha eliminado en la versión de 24 horas.  El
+# siguiente valor ya no se utiliza, pero se deja definido a cero por
+# compatibilidad con código antiguo.
+PAUSE_TIME_LIMIT = 0
 
 # Colores del panel (ALEGRES)
 PANEL_COLORS = {

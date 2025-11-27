@@ -28,10 +28,8 @@ from minigames.express_race import ExpressRace
 # Importación de SpaceInvaderGame eliminada porque el juego
 # no funciona correctamente y ha sido retirado del proyecto.
 # from minigames.space_invader import SpaceInvaderGame
-from minigames.asteroids_game import AsteroidsGame
+# Importamos solo los minijuegos permitidos.  Se eliminan AsteroidsGame, CasinoRouletteGame y PairsGame.
 from minigames.blackjack_game import BlackjackGame
-from minigames.casino_roulette import CasinoRouletteGame
-from minigames.pairs_game import PairsGame
 
 # Nota: El minijuego "Click Rapido" se ha eliminado a petición del usuario.
 # Por lo tanto, no se importa ni se incluye en la lista de juegos disponibles.
@@ -219,9 +217,10 @@ class MiniDiego:
         self.sleeping = False
         self.sleep_start_time = None
         
-        # Contador de 168 horas (7 días)
+        # Contador de 24 horas (1 día).  Adaptamos la duración del juego para que se pueda
+        # completar en un día, en lugar de las 168 horas (7 días) originales.
         self.game_start_time = time.time()
-        self.total_time = 168 * 3600
+        self.total_time = 24 * 3600
         self.pause_time_used = 0
         self.pause_start_time = None
         # Guardamos la fecha del último día en que se reseteó la pausa (YYYY-MM-DD)
@@ -250,27 +249,22 @@ class MiniDiego:
                         font=("Arial", 16, "bold"), bg="#2d2d2d", fg="white")
         title.pack(pady=10)
         
-        # Contador de 168 horas
+        # Contador de 24 horas
+        # En esta versión de 24 horas el tiempo total se muestra como 024:00:00 al inicio.
         self.time_frame = tk.Frame(self.root, bg="#1a1a1a", relief="sunken", bd=2)
         self.time_frame.pack(fill="x", padx=10, pady=5)
-        
-        self.time_label = tk.Label(self.time_frame, text="Tiempo: 168:00:00",
-                                   font=("Arial", 12, "bold"), bg="#1a1a1a", fg="#00FF00")
+
+        # Ajustamos la etiqueta del contador para reflejar las 24 horas de juego.
+        self.time_label = tk.Label(
+            self.time_frame,
+            text="Tiempo: 024:00:00",
+            font=("Arial", 12, "bold"),
+            bg="#1a1a1a",
+            fg="#00FF00"
+        )
         self.time_label.pack(side="left", padx=10, pady=5)
-        
-        # Frame de pausa con CRONO VISIBLE
-        pause_frame = tk.Frame(self.root, bg="#1a1a1a", relief="sunken", bd=2)
-        pause_frame.pack(fill="x", padx=10, pady=5)
-        
-        self.pause_time_label = tk.Label(pause_frame, text="Pausa disponible: 07:00:00",
-                                         font=("Arial", 12, "bold"), bg="#1a1a1a", fg="#00FF00")
-        self.pause_time_label.pack(side="left", padx=10, pady=5)
-        
-        self.pause_button = tk.Button(pause_frame, text="PAUSAR (7h)",
-                                      command=self.toggle_pause,
-                                      font=("Arial", 10, "bold"), bg="#FFC107", fg="black",
-                                      relief="raised", cursor="hand2")
-        self.pause_button.pack(side="right", padx=10, pady=5)
+
+        # El modo pausa ha sido eliminado para que el juego se juegue de una sola vez.
         
         # Frame para stats
         stats_container = tk.Frame(self.root, bg="#2d2d2d")
@@ -301,7 +295,7 @@ class MiniDiego:
         
         # Iniciar thread del contador
         threading.Thread(target=self._countdown_loop, daemon=True).start()
-        threading.Thread(target=self._pause_info_loop, daemon=True).start()
+        # Nota: No iniciamos _pause_info_loop porque la funcionalidad de pausa se ha eliminado.
     
     def _create_stat_row(self, parent, stat_name, btn_text, color, command):
         """Crea fila con botón NEGRO y barras"""
@@ -457,13 +451,15 @@ class MiniDiego:
                 time.sleep(1)
     
     def _countdown_loop(self):
-        """Loop del contador - SE PAUSA cuando paused=True"""
+        """
+        Loop del contador.  En esta versión no existe un modo de pausa manual, por lo
+        que el tiempo restante sólo se detiene cuando Mini‑Diego está durmiendo.
+        """
         while True:
             try:
                 if self.alive:
                     if not self.paused:
-                        # Contador de 7 días bajando normalmente
-                        # Calcular tiempo transcurrido
+                        # Calcular tiempo transcurrido en un juego de 24 horas
                         elapsed = time.time() - self.game_start_time
                         remaining = self.total_time - elapsed
                         
@@ -475,30 +471,26 @@ class MiniDiego:
                         minutes = int((remaining % 3600) // 60)
                         seconds = int(remaining % 60)
                         
+                        # Formateamos con 3 dígitos para horas para mostrar 024:00:00 al inicio
                         time_str = f"Tiempo: {hours:03d}:{minutes:02d}:{seconds:02d}"
                         self.time_label.config(text=time_str, fg="#00FF00")
                     else:
-                        # Pausado - ajustar tiempo de inicio para compensar
-                        if self.pause_start_time:
-                            elapsed_pause = time.time() - self.pause_start_time
-                            self.game_start_time += elapsed_pause
-                            self.pause_start_time = time.time()
-                        
+                        # Si estuviera pausado (modo eliminado), simplemente mantén el color
+                        # En esta versión no se utiliza self.paused, pero dejamos el código
+                        # para compatibilidad.
                         self.time_label.config(fg="#FFC107")
                     
-                    # Resetear pausa diaria si cambia el día
-                    current_date = time.strftime("%Y-%m-%d")
-                    if current_date != self.pause_reset_date:
-                        # Ha pasado a un día diferente: restaurar tiempo de pausa
-                        self.pause_time_used = 0
-                        self.pause_reset_date = current_date
+                    # En esta versión no reiniciamos la pausa diaria, ya que no hay pausa.
                 
                 time.sleep(1)
             except:
                 time.sleep(1)
     
     def _game_won(self):
-        """Victoria - 168 horas completadas"""
+        """
+        Victoria.  Se invoca cuando la cuenta atrás de 24 horas llega a cero y Mini‑Diego
+        sigue con vida.
+        """
         self.root.quit()
     
     def _get_emotional_state(self):
@@ -623,7 +615,15 @@ class MiniDiego:
                 time.sleep(60)
     
     def _minigame_event_loop(self):
-        """Loop de minijuegos - INTERVALO ALEATORIO 1-2 HORAS"""
+        """
+        Loop de minijuegos.
+
+        Programa la aparición de un minijuego cada 15 minutos aproximadamente.  El
+        intervalo entre eventos está configurado en `modules/config.py` a través de
+        `EVENT_INTERVAL_MIN` y `EVENT_INTERVAL_MAX`, ambos establecidos en 900
+        segundos (15 minutos).  Si Mini‑Diego está durmiendo, el contador de
+        minijuegos se pausa automáticamente y se reanudará cuando despierte.
+        """
         next_event = time.time() + random.randint(EVENT_INTERVAL_MIN, EVENT_INTERVAL_MAX)
         
         while True:
@@ -726,6 +726,7 @@ class MiniDiego:
         # los minijuegos clásicos (quiz, memoria, stroop, snake, tetris) como
         # los minijuegos de reacción, mecanografía, atrapar, evita rayos, desactiva
         # bomba, cruza la calle, revienta globos, carrera exprés y salta/sube.
+        # Lista de minijuegos disponibles.  Se eliminan Asteroides, Ruleta Casino y Parejas
         games = [
             MathQuiz,
             MemoryGame,
@@ -739,10 +740,7 @@ class MiniDiego:
             CrossRoad,
             ExpressRace,
             # Se elimina SpaceInvaderGame ya que no funciona correctamente
-            AsteroidsGame,
             BlackjackGame,
-            CasinoRouletteGame,
-            PairsGame,
             # JumpClimb se elimina de la lista de minijuegos disponibles
         ]
         # Si se especifica un juego concreto se usará, en caso contrario se
@@ -986,11 +984,8 @@ class MiniDiego:
             ("Desactiva Bomba", DisarmBomb),
             ("Cruza Calle", CrossRoad),
             ("Carrera Exprés", ExpressRace),
-            # Nuevos minijuegos añadidos
-            ("Asteroides", AsteroidsGame),
-            ("Blackjack", BlackjackGame),
-            ("Ruleta Casino", CasinoRouletteGame),
-            ("Parejas", PairsGame)
+            # Nuevos minijuegos añadidos (eliminamos Asteroides, Ruleta Casino y Parejas)
+            ("Blackjack", BlackjackGame)
         ]
         for text, game_cls in admin_games:
             tk.Button(game_frame, text=text, command=lambda cls=game_cls: self.launch_minigame(cls),
