@@ -97,6 +97,11 @@ class DisarmBomb:
         # Bind global key press
         self.window.bind("<Key>", self._on_key_press)
 
+        # Temporizador para memorizar secuencia
+        # Almacena el identificador devuelto por after() para poder cancelarlo si
+        # el jugador decide comenzar antes pulsando la barra espaciadora.
+        self.mem_timer_id = None
+
     def _start_drag(self, event: tk.Event) -> None:
         self._drag_data = {"x": event.x, "y": event.y}
 
@@ -197,10 +202,19 @@ class DisarmBomb:
             font=("Comic Sans MS", 14),
             fill="#CCCCCC"
         ))
-        # Ocultar secuencia después de 2 segundos y permitir entrada
-        self.window.after(2000, self._start_input_phase)
+        # Ocultar secuencia después de 20 segundos y permitir entrada
+        # Guardamos el identificador para poder cancelar si el usuario decide
+        # empezar antes presionando la barra espaciadora.
+        self.mem_timer_id = self.window.after(20000, self._start_input_phase)
 
     def _start_input_phase(self) -> None:
+        # Cancelar temporizador de memorización si aún no se ha cancelado
+        if hasattr(self, 'mem_timer_id') and self.mem_timer_id is not None:
+            try:
+                self.window.after_cancel(self.mem_timer_id)
+            except Exception:
+                pass
+            self.mem_timer_id = None
         self.showing_sequence = False
         self.input_allowed = True
         # Limpiar secuencia de la pantalla y mostrar indicación
@@ -225,7 +239,20 @@ class DisarmBomb:
         self.user_input = []
 
     def _on_key_press(self, event: tk.Event) -> None:
+        # Si aún no se permite la entrada y se está mostrando la secuencia,
+        # permitir al jugador saltar la fase de memorización pulsando la barra espaciadora.
         if not self.input_allowed:
+            # Permitir pasar al modo de entrada si se presiona Space durante la muestra
+            if self.showing_sequence and event.keysym.lower() == 'space':
+                # Cancelar temporizador de memorización si existe
+                if hasattr(self, 'mem_timer_id') and self.mem_timer_id is not None:
+                    try:
+                        self.window.after_cancel(self.mem_timer_id)
+                    except Exception:
+                        pass
+                    self.mem_timer_id = None
+                # Pasar inmediatamente a la fase de entrada
+                self._start_input_phase()
             return
         key = event.keysym
         # Convert to our representation

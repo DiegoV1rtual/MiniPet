@@ -30,6 +30,39 @@ from minigames.express_race import ExpressRace
 # from minigames.space_invader import SpaceInvaderGame
 # Importamos solo los minijuegos permitidos.  Se eliminan AsteroidsGame, CasinoRouletteGame y PairsGame.
 from minigames.blackjack_game import BlackjackGame
+from minigames.qwer_hero import QWERHeroGame
+
+# Importaciones para audio y enlaces externos
+import webbrowser
+import threading
+import os
+try:
+    # playsound es una librería sencilla para reproducir clips de audio. Si no
+    # está disponible, los sonidos simplemente no se reproducen.
+    from playsound import playsound  # type: ignore
+except Exception:
+    playsound = None
+
+
+# Utilidad para reproducir un sonido aleatorio de una carpeta.
+# Busca archivos con extensión .mp3, .wav u .ogg en la carpeta indicada y
+# reproduce uno al azar en un hilo aparte. Si no hay archivos o no está
+# disponible la biblioteca playsound, la función no hace nada.
+def play_random_sound(folder: str) -> None:
+    try:
+        files = [f for f in os.listdir(folder) if f.lower().endswith((".mp3", ".wav", ".ogg"))]
+        if not files:
+            return
+        file_path = os.path.join(folder, random.choice(files))
+        def _play() -> None:
+            if playsound is not None:
+                try:
+                    playsound(file_path)
+                except Exception:
+                    pass
+        threading.Thread(target=_play, daemon=True).start()
+    except Exception:
+        pass
 
 # Nota: El minijuego "Click Rapido" se ha eliminado a petición del usuario.
 # Por lo tanto, no se importa ni se incluye en la lista de juegos disponibles.
@@ -167,10 +200,69 @@ class PetOverlay:
         return self.window.winfo_x(), self.window.winfo_y()
     
     def smooth_move(self):
-        """Mueve la mascota SUAVEMENTE a posición aleatoria"""
-        target_x = random.randint(0, self.screen_width - self.size)
-        target_y = random.randint(0, self.screen_height - self.size)
-        self._animate_move_to(target_x, target_y)
+        """
+        Mueve la mascota suavemente por la pantalla. Se asegura de que la
+        mascota permanezca siempre visible sobre todas las ventanas y, de
+        vez en cuando, realiza un pequeño viaje fuera de la pantalla y
+        vuelve a entrar desde un borde aleatorio para dar la sensación de
+        que desaparece y reaparece. Este comportamiento se activa de forma
+        aleatoria para no resultar predecible.
+        """
+        # Asegurar que la ventana esté siempre en primer plano.
+        try:
+            self.window.lift()
+            # Reaplicar la propiedad -topmost por si algún gestor de ventanas la
+            # desactiva temporalmente.
+            self.window.attributes("-topmost", True)
+        except Exception:
+            pass
+
+        # Con una probabilidad muy baja (5 %) la mascota abandona brevemente un
+        # borde de la pantalla y reaparece desde otro lado.  La mayor parte
+        # del tiempo simplemente se moverá a una posición aleatoria dentro de
+        # la pantalla para permanecer visible durante más tiempo.
+        if random.random() < 0.05:
+            # Elegir borde de salida y entrada
+            side = random.choice(["left", "right", "top", "bottom"])
+            # Posición actual
+            current_x = self.window.winfo_x()
+            current_y = self.window.winfo_y()
+            # Elegir una coordenada aleatoria en el eje perpendicular
+            if side == "left":
+                # Salir por la izquierda y entrar por la derecha
+                off_x = -self.size
+                off_y = random.randint(0, self.screen_height - self.size)
+                self._animate_move_to(off_x, off_y)
+                # Reentrar desde la derecha
+                in_x = self.screen_width
+                in_y = random.randint(0, self.screen_height - self.size)
+                self._animate_move_to(in_x, in_y)
+            elif side == "right":
+                off_x = self.screen_width
+                off_y = random.randint(0, self.screen_height - self.size)
+                self._animate_move_to(off_x, off_y)
+                in_x = -self.size
+                in_y = random.randint(0, self.screen_height - self.size)
+                self._animate_move_to(in_x, in_y)
+            elif side == "top":
+                off_x = random.randint(0, self.screen_width - self.size)
+                off_y = -self.size
+                self._animate_move_to(off_x, off_y)
+                in_x = random.randint(0, self.screen_width - self.size)
+                in_y = self.screen_height
+                self._animate_move_to(in_x, in_y)
+            else:  # bottom
+                off_x = random.randint(0, self.screen_width - self.size)
+                off_y = self.screen_height
+                self._animate_move_to(off_x, off_y)
+                in_x = random.randint(0, self.screen_width - self.size)
+                in_y = -self.size
+                self._animate_move_to(in_x, in_y)
+        else:
+            # Mover a una posición aleatoria dentro de la pantalla
+            target_x = random.randint(0, self.screen_width - self.size)
+            target_y = random.randint(0, self.screen_height - self.size)
+            self._animate_move_to(target_x, target_y)
     
     def _animate_move_to(self, target_x, target_y):
         """Anima el movimiento SUAVEMENTE usando interpolación"""
@@ -241,6 +333,16 @@ class MiniDiego:
         threading.Thread(target=self._pet_movement_loop, daemon=True).start()
         threading.Thread(target=self._minigame_event_loop, daemon=True).start()
         threading.Thread(target=self._sleep_monitor_loop, daemon=True).start()
+
+        # Iniciar hilo para reproducir sonidos aleatorios mientras la mascota está
+        # despierta.  Este hilo se mantiene en espera y reproduce un sonido de
+        # la carpeta "awake" en intervalos aleatorios cuando la mascota no
+        # duerme.  Si no hay archivos en la carpeta, la función no hace nada.
+        threading.Thread(target=self._awake_audio_loop, daemon=True).start()
+
+        # Manejadores de audio de sueño
+        self._sleep_ambient_thread = None
+        self._sleep_ambient_stop = None
     
     def create_control_panel(self):
         """Panel de control"""
@@ -581,10 +683,14 @@ class MiniDiego:
         """Mascota se mueve SUAVEMENTE"""
         while True:
             try:
-                if self.alive and not self.sleeping and not self.paused and random.random() < 0.4:
+                # Siempre mover la mascota si está viva, no duerme y no está en pausa. La frecuencia
+                # de movimiento está controlada por PET_MOVE_MIN_INTERVAL y PET_MOVE_MAX_INTERVAL.
+                if self.alive and not self.sleeping and not self.paused:
                     self.pet_overlay.smooth_move()
+                # Esperar un intervalo aleatorio antes de moverse de nuevo
                 time.sleep(random.randint(PET_MOVE_MIN_INTERVAL, PET_MOVE_MAX_INTERVAL))
-            except:
+            except Exception:
+                # En caso de error inesperado, esperar unos segundos y continuar
                 time.sleep(5)
     
     def _sleep_monitor_loop(self):
@@ -612,6 +718,32 @@ class MiniDiego:
                 
                 time.sleep(60)  # Verificar cada minuto
             except:
+                time.sleep(60)
+
+    def _awake_audio_loop(self):
+        """Reproduce sonidos aleatorios mientras la mascota está despierta.
+
+        Este hilo se ejecuta en segundo plano y espera un intervalo aleatorio
+        de entre 3 y 5 minutos.  Si la mascota está viva y no está dormida,
+        reproduce un clip de audio aleatorio de la carpeta ``assets/sounds/awake``.
+        Si la biblioteca ``playsound`` no está disponible o no hay archivos de
+        audio, la función no hace nada.  Durante el sueño o cuando está
+        muerta, el hilo simplemente espera y vuelve a comprobar más tarde.
+        """
+        while True:
+            try:
+                # Generar un intervalo aleatorio en segundos (180, 240 o 300)
+                delay = random.choice([180, 240, 300])
+                time.sleep(delay)
+                # Solo reproducir sonido si la mascota está viva y despierta
+                if self.alive and not self.sleeping:
+                    try:
+                        folder = os.path.join("assets", "sounds", "awake")
+                        play_random_sound(folder)
+                    except Exception:
+                        pass
+            except Exception:
+                # En caso de error inesperado, esperar un poco antes de reintentar
                 time.sleep(60)
     
     def _minigame_event_loop(self):
@@ -741,6 +873,8 @@ class MiniDiego:
             ExpressRace,
             # Se elimina SpaceInvaderGame ya que no funciona correctamente
             BlackjackGame,
+            # Nuevo minijuego estilo Guitar Hero con teclas QWER
+            QWERHeroGame,
             # JumpClimb se elimina de la lista de minijuegos disponibles
         ]
         # Si se especifica un juego concreto se usará, en caso contrario se
@@ -760,9 +894,19 @@ class MiniDiego:
         
         if result == 'won':
             self.change_stat('felicidad', 15)  # +15% felicidad por ganar
+            # Sonido de victoria en minijuego
+            try:
+                play_random_sound(os.path.join("assets", "sounds", "minigame_win"))
+            except Exception:
+                pass
             self.open_good_roulette()
         elif result == 'lost':
             self.change_stat('felicidad', -10)
+            # Sonido de derrota en minijuego
+            try:
+                play_random_sound(os.path.join("assets", "sounds", "minigame_loss"))
+            except Exception:
+                pass
             self.open_bad_roulette()
     
     def open_good_roulette(self):
@@ -914,7 +1058,15 @@ class MiniDiego:
         """Muerte con MENSAJE ALEATORIO (14 mensajes)"""
         self.alive = False
         message = random.choice(DEATH_MESSAGES)
+        # Reproducir sonido de muerte si existe
+        play_random_sound(os.path.join("assets", "sounds", "death"))
         messagebox.showerror("GAME OVER", f"Mini-Diego ha muerto.\n\nCausa: {cause}\n\n{message}")
+        # Con una probabilidad del 10 %, abrir un vídeo en el navegador web como broma final
+        try:
+            if random.random() < 0.1:
+                webbrowser.open("https://www.youtube.com/watch?v=lv9cLJ41Rzc")
+        except Exception:
+            pass
         self.root.quit()
     
     def feed_pet(self):
@@ -922,12 +1074,16 @@ class MiniDiego:
         if not self.alive or self.sleeping:
             return
         self.change_stat('hambre', FEED_INCREASE)
+        # Reproducir sonido de comer
+        play_random_sound(os.path.join("assets", "sounds", "eat"))
     
     def shower_pet(self):
         """Duchar"""
         if not self.alive or self.sleeping:
             return
         self.change_stat('higiene', SHOWER_INCREASE)
+        # Opcional: reproducir un sonido al duchar si se agregan archivos en la carpeta correspondiente
+        play_random_sound(os.path.join("assets", "sounds", "shower"))
     
     def toggle_sleep(self):
         """Dormir ON/OFF - Funciona cuando quieras"""
@@ -939,11 +1095,17 @@ class MiniDiego:
             self.sleeping = False
             self.sleep_start_time = None
             self._update_sleep_button_color()
+            # Detener sonidos ambientales de sueño al despertar
+            self.stop_sleep_ambient_sound()
         else:
             # Dormir
             self.sleeping = True
             self.sleep_start_time = time.time()
             self._update_sleep_button_color()
+            # Reproducir sonido de irse a dormir
+            play_random_sound(os.path.join("assets", "sounds", "sleep"))
+            # Iniciar sonidos ambientales en bucle mientras duerme
+            self.start_sleep_ambient_sound()
     
     def open_admin(self):
         """Panel admin"""
@@ -955,7 +1117,9 @@ class MiniDiego:
         
         admin_win = tk.Toplevel(self.root)
         admin_win.title("Panel Admin")
-        admin_win.geometry("320x500")
+        # Aumentamos el tamaño de la ventana para que quepan todas las opciones sin
+        # necesidad de estirar manualmente.  420x700 proporciona más espacio.
+        admin_win.geometry("420x700")
         admin_win.attributes("-topmost", True)
         admin_win.configure(bg="#1a1a1a")
         
@@ -989,23 +1153,46 @@ class MiniDiego:
         ]
         for text, game_cls in admin_games:
             tk.Button(game_frame, text=text, command=lambda cls=game_cls: self.launch_minigame(cls),
-                     width=22, bg="#2196F3", fg="white", font=("Comic Sans MS", 10, "bold")).pack(pady=2)
+                     width=28, bg="#2196F3", fg="white", font=("Comic Sans MS", 10, "bold")).pack(pady=2)
         
         tk.Frame(admin_win, height=2, bg="#555").pack(fill="x", pady=5)
         
         tk.Button(admin_win, text="FORZAR MINIJUEGO AHORA", 
                  command=self.show_minigame_popup,
-                 width=22, bg="#FF9800", fg="white", 
+                 width=28, bg="#FF9800", fg="white", 
                  font=("Arial", 10, "bold")).pack(pady=8)
         
         tk.Frame(admin_win, height=2, bg="#555").pack(fill="x", pady=12)
         
         tk.Button(admin_win, text="Restaurar 100%", command=self.restore_stats, 
-                 width=22, bg="#4CAF50", fg="white", font=("Arial", 10, "bold")).pack(pady=6)
+                 width=28, bg="#4CAF50", fg="white", font=("Arial", 10, "bold")).pack(pady=6)
         tk.Button(admin_win, text="Despertar", command=lambda: setattr(self, 'sleeping', False), 
-                 width=22, bg="#FF9800", fg="white", font=("Arial", 10)).pack(pady=6)
-        tk.Button(admin_win, text="SALIR", command=self.root.quit, 
-                 width=22, bg="#f44336", fg="white", font=("Arial", 10, "bold")).pack(pady=6)
+                 width=28, bg="#FF9800", fg="white", font=("Arial", 10)).pack(pady=6)
+        # Separador antes de la sección de sonidos
+        tk.Frame(admin_win, height=2, bg="#555").pack(fill="x", pady=6)
+        tk.Label(admin_win, text="Reproducir sonidos:",
+                 font=("Comic Sans MS", 12, "bold"), bg="#1a1a1a", fg="white").pack(pady=8)
+        # Botones para reproducir sonidos aleatorios de cada categoría.  Al hacer
+        # clic se selecciona un archivo al azar de la carpeta correspondiente y
+        # se reproduce mediante la función play_random_sound.
+        sound_buttons = [
+            ("Hablar despierto", "awake"),
+            ("Comer", "eat"),
+            ("Ducha", "shower"),
+            ("Dormir", "sleep"),
+            ("Ambiente sueño", "sleep_ambient"),
+            ("Victoria minijuego", "minigame_win"),
+            ("Derrota minijuego", "minigame_loss"),
+            ("Muerte", "death")
+        ]
+        for text, folder in sound_buttons:
+            tk.Button(admin_win, text=text,
+                     command=lambda f=folder: play_random_sound(os.path.join("assets", "sounds", f)),
+                     width=28, bg="#9C27B0", fg="white", font=("Arial", 10, "bold")).pack(pady=2)
+        # Botón para salir al final
+        tk.Frame(admin_win, height=2, bg="#555").pack(fill="x", pady=6)
+        tk.Button(admin_win, text="SALIR", command=self.root.quit,
+                 width=28, bg="#f44336", fg="white", font=("Arial", 10, "bold")).pack(pady=6)
     
     def restore_stats(self):
         """Restaurar stats"""
@@ -1014,6 +1201,37 @@ class MiniDiego:
         self.higiene = 100
         self.felicidad = 100
         self.update_display()
+
+    # ------------------------------------------------------------------
+    # Reproducción de sonidos de sueño
+    #
+    # Estas funciones gestionan un hilo que reproduce de forma aleatoria
+    # sonidos de ambiente mientras Mini‑Diego duerme. El hilo se detiene
+    # automáticamente al despertar.
+    def start_sleep_ambient_sound(self) -> None:
+        """Comienza a reproducir sonidos ambientales mientras duerme."""
+        # No iniciar de nuevo si ya hay un hilo activo
+        if hasattr(self, '_sleep_ambient_thread') and self._sleep_ambient_thread:
+            if self._sleep_ambient_thread.is_alive():
+                return
+        # Crear evento de parada
+        self._sleep_ambient_stop = threading.Event()
+
+        def loop() -> None:
+            while not self._sleep_ambient_stop.is_set():
+                play_random_sound(os.path.join("assets", "sounds", "sleep_ambient"))
+                # Esperar unos segundos antes de reproducir el siguiente sonido
+                # para no superponer clips. El tiempo de espera se puede ajustar
+                # según la duración de tus pistas de audio.
+                time.sleep(10)
+        # Lanzar hilo en segundo plano
+        self._sleep_ambient_thread = threading.Thread(target=loop, daemon=True)
+        self._sleep_ambient_thread.start()
+
+    def stop_sleep_ambient_sound(self) -> None:
+        """Detiene la reproducción de sonidos ambientales de sueño."""
+        if hasattr(self, '_sleep_ambient_stop') and self._sleep_ambient_stop:
+            self._sleep_ambient_stop.set()
     
 
 def main():

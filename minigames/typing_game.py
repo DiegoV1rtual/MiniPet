@@ -55,6 +55,12 @@ class TypingGame:
         self.current_word = ""
         self.timeout_id = None
 
+        # Reloj de cuenta regresiva
+        # Mostramos al jugador cuánto tiempo le queda para escribir la palabra actual.
+        self.timer_text_id = None  # ID del texto del temporizador en el lienzo
+        self.timer_update_id = None  # ID del callback after() para poder cancelarlo
+        self.time_remaining_ms = 0  # Tiempo restante en milisegundos para la ronda actual
+
         # Create toplevel window
         self.window = tk.Toplevel()
         self.window.title("")
@@ -180,6 +186,13 @@ class TypingGame:
                 except Exception:
                     pass
                 self.timeout_id = None
+            # Cancelar actualización del temporizador visible
+            if self.timer_update_id is not None:
+                try:
+                    self.window.after_cancel(self.timer_update_id)
+                except Exception:
+                    pass
+                self.timer_update_id = None
             # Mostrar derrota inmediata
             self._clear_widgets()
             w, h = self.canvas.winfo_width(), self.canvas.winfo_height()
@@ -247,18 +260,39 @@ class TypingGame:
         # Verificar cada pulsación de tecla para detectar errores inmediatamente
         entry.bind("<KeyRelease>", lambda e: self._on_keypress_check(entry))
         self.entry_widget = entry
-        # Timeout adaptativo: reduce el tiempo cada ronda para aumentar la dificultad.
-        # Cancelar cualquier timeout anterior
+        # Configurar el límite de tiempo para escribir la palabra.
+        # Para el modo de 24 horas se proporciona más margen: cada palabra tiene
+        # exactamente 5 segundos para ser tecleada, independientemente de la
+        # ronda.  Se cancela cualquier timeout previo antes de programar el
+        # nuevo.
         if self.timeout_id is not None:
             try:
                 self.window.after_cancel(self.timeout_id)
             except Exception:
                 pass
-        # El tiempo base es 6 segundos; se reduce 0,5 s por ronda (mínimo 3 s).
-        base = 6000
-        reduction = (self.current_round - 1) * 500
-        time_limit = max(3000, base - reduction)
+        # Tiempo límite fijo de 5 segundos (5000 ms)
+        time_limit = 5000
         self.timeout_id = self.window.after(time_limit, lambda: self._on_timeout(entry))
+        # Configuramos el temporizador visible
+        self.time_remaining_ms = time_limit
+        # Dibujamos el temporizador en la parte superior de la pantalla. Si ya existe
+        # un texto de temporizador de una ronda anterior, lo eliminamos primero.
+        if self.timer_text_id is not None:
+            try:
+                self.canvas.delete(self.timer_text_id)
+            except Exception:
+                pass
+            self.timer_text_id = None
+        timer_label = self.canvas.create_text(
+            cx, 80,
+            text=f"Tiempo restante: {int(self.time_remaining_ms/1000)}s",
+            font=("Arial", 14, "bold"),
+            fill="#00FF00"
+        )
+        self.widgets.append(timer_label)
+        self.timer_text_id = timer_label
+        # Iniciamos la actualización del temporizador
+        self._update_timer()
 
     def _check_input(self, entry: tk.Entry) -> None:
         # Prevent multiple submissions
@@ -287,6 +321,13 @@ class TypingGame:
                 pass
             self.entry_widget = None
         # Delay before next word
+        # Cancel actualización del temporizador para evitar que siga ejecutándose
+        if self.timer_update_id is not None:
+            try:
+                self.window.after_cancel(self.timer_update_id)
+            except Exception:
+                pass
+            self.timer_update_id = None
         self.window.after(300, self._next_round)
 
     def _game_over(self) -> None:
@@ -298,6 +339,13 @@ class TypingGame:
                 pass
             self.timeout_id = None
         won = self.successes >= self.required_successes
+        # Cancelar actualización del temporizador visible si existe
+        if self.timer_update_id is not None:
+            try:
+                self.window.after_cancel(self.timer_update_id)
+            except Exception:
+                pass
+            self.timer_update_id = None
         self._clear_widgets()
         w, h = self.canvas.winfo_width(), self.canvas.winfo_height()
         cx, cy = w // 2, h // 2
@@ -359,3 +407,26 @@ class TypingGame:
             except Exception:
                 pass
         self.widgets.clear()
+
+    def _update_timer(self) -> None:
+        """
+        Actualiza el temporizador visible cada segundo. Cuando el tiempo se
+        agota, deja de actualizarse. El temporizador se cancela
+        automáticamente al finalizar cada ronda o al producirse una derrota.
+        """
+        # Si el juego ya se ha cerrado o no hay tiempo restante, no hacer nada
+        if getattr(self, "game_closed", False):
+            return
+        if self.time_remaining_ms <= 0:
+            return
+        # Reducir tiempo restante
+        self.time_remaining_ms -= 1000
+        remaining_secs = max(0, int(self.time_remaining_ms / 1000))
+        # Actualizar texto en pantalla
+        if self.timer_text_id is not None:
+            try:
+                self.canvas.itemconfigure(self.timer_text_id, text=f"Tiempo restante: {remaining_secs}s")
+            except Exception:
+                pass
+        # Reprogramar actualización
+        self.timer_update_id = self.window.after(1000, self._update_timer)

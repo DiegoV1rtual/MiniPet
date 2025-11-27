@@ -12,16 +12,24 @@ MINIGAME_ANSWER_TIMEOUT = 6
 ADMIN_CODE = "admin123"
 
 # Desgaste de estadísticas
-# Incrementamos el desgaste de estadísticas para que el juego de 24h siga siendo desafiante.
-# Multiplicamos los valores originales por ~7 (168h/24h) para mantener la dificultad.
-HUNGER_DECAY_PER_HOUR = 35
-SLEEP_DECAY_PER_HOUR = 105
-HYGIENE_DECAY_PER_2HOURS = 70
+# Para que el juego se complete cómodamente en un único día (24 horas) pero
+# siga siendo desafiante, aceleramos aún más la pérdida de hambre, sueño e
+# higiene. Estos valores se han ajustado para que Mini‑Diego requiera
+# atención frecuente: si se descuida unas pocas horas, las barras caen
+# rápidamente. Igualmente, aumentamos la ganancia de sueño por minuto para
+# permitir recuperarse con siestas más cortas. Todas las cifras se expresan
+# en puntos porcentuales perdidos o ganados por hora.
+HUNGER_DECAY_PER_HOUR = 70     # pierde 70 % de hambre cada hora despierto
+SLEEP_DECAY_PER_HOUR = 140     # pierde 140 % de sueño cada hora despierto
+HYGIENE_DECAY_PER_2HOURS = 120 # pierde 120 % de higiene cada 2 h si no se ducha
 SLEEP_DECAY_REDUCTION = 0.80
 
 # Sistema de sueño por MINUTO
-SLEEP_GAIN_PER_MINUTE = 1.43  # 100% en 7 horas (420 minutos) = ~1.43% por minuto
-SLEEP_OPTIMAL_HOURS = 7        # Después de 7 horas empieza a ganar puntos
+# Ganancia de sueño por minuto. Con 3.5 puntos por minuto, la barra pasa de
+# 0 a 100 en menos de 30 minutos de sueño continuo. Esto compensa la
+# degradación acelerada del sueño cuando está despierto.
+SLEEP_GAIN_PER_MINUTE = 3.5
+SLEEP_OPTIMAL_HOURS = 7        # Tras 7 h seguidas empieza a penalizar felicidad
 
 # Límites
 HUNGER_DEATH_MIN = 0
@@ -44,10 +52,15 @@ WINDOW_WIDTH = 800
 WINDOW_HEIGHT = 600
 
 # Movimiento
-PET_MOVE_STEPS = 60
-PET_MOVE_DELAY = 0.02
-PET_MOVE_MIN_INTERVAL = 8
-PET_MOVE_MAX_INTERVAL = 20
+# La mascota flotante se mueve más lentamente para que permanezca más
+# tiempo en pantalla. Se incrementan los pasos y la demora entre ellos,
+# produciendo un desplazamiento suave y pausado. Los intervalos entre
+# movimientos siguen siendo relativamente cortos (3–8 s) para que la
+# mascota cambie de posición con frecuencia sin desaparecer mucho tiempo.
+PET_MOVE_STEPS = 80
+PET_MOVE_DELAY = 0.03
+PET_MOVE_MIN_INTERVAL = 3
+PET_MOVE_MAX_INTERVAL = 8
 
 # Pausa
 # La funcionalidad de pausa se ha eliminado en la versión de 24 horas.  El

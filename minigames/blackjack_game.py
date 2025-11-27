@@ -282,25 +282,34 @@ class BlackjackGame:
         # Botones según el turno
         if player_turn:
             # Botones PEDIR y PLANTARME
+            # Botones PEDIR y PLANTARME con mayor ancho para que quepan los textos.
+            # Se calcula un ancho amplio (160 px) y se distribuye de forma simétrica
+            # alrededor del centro de la pantalla.  Esto evita que la palabra
+            # "PLANTARME" se corte visualmente.
+            button_width = 160
+            # Botón PEDIR
             pedir_rect = self.canvas.create_rectangle(
-                cx - 140, self.height - 100, cx - 20, self.height - 60,
+                cx - button_width - 10, self.height - 100,
+                cx - 10, self.height - 60,
                 fill="#6e6e6e", outline="white", width=3
             )
             self.widgets.append(pedir_rect)
             pedir_text = self.canvas.create_text(
-                (cx - 140 + cx - 20) // 2, self.height - 80,
+                cx - button_width // 2 - 10, self.height - 80,
                 text="PEDIR",
                 font=("Comic Sans MS", 16, "bold"),
                 fill="white"
             )
             self.widgets.append(pedir_text)
+            # Botón PLANTARME
             plantar_rect = self.canvas.create_rectangle(
-                cx + 20, self.height - 100, cx + 140, self.height - 60,
+                cx + 10, self.height - 100,
+                cx + button_width + 10, self.height - 60,
                 fill="#6e6e6e", outline="white", width=3
             )
             self.widgets.append(plantar_rect)
             plantar_text = self.canvas.create_text(
-                (cx + 20 + cx + 140) // 2, self.height - 80,
+                cx + button_width // 2 + 10, self.height - 80,
                 text="PLANTARME",
                 font=("Comic Sans MS", 16, "bold"),
                 fill="white"
