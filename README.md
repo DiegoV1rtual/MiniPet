@@ -17,38 +17,18 @@ chmod +x install.sh
 python3 main.py
 ```
 
-## Características
+¿De qué va esto?
+Básicamente, tienes que mantener vivo a este pequeño ser digital durante 24 horas completas. Suena fácil, ¿verdad? Pues te sorprenderías de las formas creativas en las que puede morir.
+Mini-Diego tiene 4 necesidades que gestionar (como cualquier adulto funcional, pero en versión pixel):
 
-- **4 Estadísticas**: Hambre, Sueño, Higiene, Felicidad
-- **Contador de 168h**: Sobrevive 7 días completos
-- **Sistema de pausa**: 7 horas disponibles diarias
-- **3 Minijuegos**: Quiz, Memoria, Stroop (todos centrados)
-- **5 Formas de morir**: Cada una con sprite específico
-- **Mascota flotante**: Se sobrepone a toda la pantalla
+Hambre: Dale de comer o se pondrá dramático
+Sueño: Necesita sus horitas de descanso
+Higiene: Sí, incluso los sprites digitales huelen mal
+Felicidad: Porque la existencia es dura, incluso en 150x150 píxeles
 
-## Controles
+El truco sucio
+Si cierras el juego o Mini-Diego tiene un "final trágico", el contador vuelve a cero. Es como Groundhog Day pero con más presión y menos Bill Murray.
+Objetivo
+Sobrevivir 24 horas. Eso es todo. Bueno, no TODO... también tienes que evitar que se convierta en una estadística de mortalidad virtual. Hay 5 formas distintas de morir, cada una con su propio sprite dramático. Colecciónalas todas (o mejor, no lo hagas).
 
-- **Alimentar**: +10% hambre
-- **Duchar**: +40% higiene
-- **Dormir/Despertar**: Control total - duerme y despierta cuando quieras
-  - Gana 1.43% sueño por minuto (100% en 7h)
-  - Sin penalizaciones por dormir/despertar
-- **Admin**: Código `admin123`
-
-## Importante
-
-- **NO hay guardado automático**: Si cierras el juego o la mascota muere, el tiempo vuelve a empezar
-- **Dormir es libre**: Puedes poner a dormir y despertar a Mini-Diego cuando quieras
-- Cada muerte reinicia el contador de 168 horas
-
-## Objetivo
-
-Mantén vivo a Mini-Diego durante 168 horas sin que ninguna stat llegue a 0% o hambre supere 90%.
-
-## Sprites
-
-Coloca sprites PNG (150x150px) en `assets/sprites/`:
-- Estados: normal, hambriento, gordo, sucio, cansado, feliz, triste, etc.
-- Muertes: muerte_hambre, muerte_obesidad, muerte_sueno, muerte_higiene, muerte_tristeza
-
-Sin sprites, el juego usa cuadrados de colores automáticamente.
+Spoiler: Es más difícil de lo que parece. Pero hey, si puedes mantener viva una planta, puedes con esto. Probablemente.
