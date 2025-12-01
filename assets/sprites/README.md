@@ -13,9 +13,14 @@ gráficos.
 - **Resolución recomendada:** 150×150 píxeles.  El juego reescalará
   las imágenes a 150 px cuadrados, pero partir de este tamaño evita
   deformaciones.
-- **Formato de archivo:** `.png` con fondo transparente.
+- **Formatos de archivo:** Se admiten `.png`, `.gif`, `.jpg` y `.jpeg`.
+  - Para archivos GIF sólo se utiliza el primer fotograma (no hay
+    animación).  Si deseas animaciones, será necesario extender el
+    código.
 - **Nombre del archivo:** debe coincidir exactamente con el nombre del
-  estado para el que se mostrará.  Algunos ejemplos de nombres válidos:
+  estado para el que se mostrará.  Por ejemplo, para el estado
+  "feliz" puedes utilizar `feliz.png` o `feliz.gif`.  Algunos
+  ejemplos de nombres válidos:
 
   | Estado           | Nombre de archivo         |
   |------------------|----------------------------|

@@ -206,6 +206,11 @@ class PetOverlay:
         self.canvas = tk.Canvas(self.window, bg="black", 
                                highlightthickness=0, width=self.size, height=self.size)
         self.canvas.pack()
+
+        # Atributos para animaciones GIF
+        self.gif_frames: list[ImageTk.PhotoImage] | None = None  # tipo: ignore
+        self.gif_index: int = 0
+        self.gif_animation_id: str | None = None
         
         # Cargar sprite
         self.load_sprite()
@@ -218,24 +223,104 @@ class PetOverlay:
         self.screen_height = screen_height
     
     def load_sprite(self, state="normal"):
-        """Carga sprite según el estado emocional"""
+        """Carga un sprite según el estado emocional.
+
+        Se admite tanto PNG como GIF, e incluso JPEG.  El método
+        busca primero un archivo con el nombre de estado y extensión
+        `.png`, luego `.gif`, `.jpg` o `.jpeg`.  Si encuentra uno,
+        intenta cargarlo con PIL (si está disponible) y redimensionarlo
+        al tamaño del sprite.  Si no existe ninguna imagen o se
+        produce un error al cargarla, se dibuja un sprite simple de
+        colores.
+        """
         self.canvas.delete("all")
-        
-        sprite_path = os.path.join("assets", "sprites", f"{state}.png")
-        
-        if HAS_PIL and os.path.exists(sprite_path):
-            try:
-                img = Image.open(sprite_path)
-                img = img.resize((self.size, self.size), Image.Resampling.LANCZOS)
-                self.sprite_img = ImageTk.PhotoImage(img)
-                self.sprite_id = self.canvas.create_image(
-                    self.size//2, self.size//2, image=self.sprite_img
-                )
-                return
-            except Exception as e:
-                print(f"Error cargando {sprite_path}: {e}")
-        
+        # Construir lista de extensiones en orden de preferencia
+        exts = [".png", ".gif", ".jpg", ".jpeg"]
+        sprite_path = None
+        for ext in exts:
+            path = os.path.join("assets", "sprites", f"{state}{ext}")
+            if os.path.exists(path):
+                sprite_path = path
+                break
+        if sprite_path:
+            # Cancelar cualquier animación en curso
+            if self.gif_animation_id:
+                try:
+                    self.canvas.after_cancel(self.gif_animation_id)
+                except Exception:
+                    pass
+                self.gif_animation_id = None
+            # Si es un GIF y PIL está disponible, intenta animar
+            if sprite_path.lower().endswith('.gif') and HAS_PIL:
+                if self._start_gif_animation(sprite_path):
+                    return
+            # Si no es GIF o la animación falló, cargar imagen estática
+            if HAS_PIL:
+                try:
+                    img = Image.open(sprite_path)
+                    # usar sólo primer frame
+                    try:
+                        img.seek(0)
+                    except Exception:
+                        pass
+                    img = img.resize((self.size, self.size), Image.Resampling.LANCZOS)
+                    self.sprite_img = ImageTk.PhotoImage(img)
+                    self.sprite_id = self.canvas.create_image(
+                        self.size//2, self.size//2, image=self.sprite_img
+                    )
+                    return
+                except Exception as e:
+                    print(f"Error cargando {sprite_path}: {e}")
+            else:
+                # Intentar cargar con Tkinter directamente si PIL no está disponible
+                try:
+                    photo = tk.PhotoImage(file=sprite_path)
+                    self.sprite_img = photo
+                    self.sprite_id = self.canvas.create_image(
+                        self.size//2, self.size//2, image=self.sprite_img
+                    )
+                    return
+                except Exception:
+                    pass
+        # Si no se cargó ninguna imagen, dibujar sprite básico
         self._draw_simple_sprite(state)
+
+    def _start_gif_animation(self, sprite_path: str) -> bool:
+        """
+        Carga un archivo GIF y reproduce su animación en bucle.
+        Devuelve ``True`` si la animación se pudo iniciar y ``False`` en caso contrario.
+        """
+        try:
+            from PIL import Image, ImageTk, ImageSequence
+            img = Image.open(sprite_path)
+            frames: list[ImageTk.PhotoImage] = []
+            for frame in ImageSequence.Iterator(img):
+                f = frame.copy()
+                # Asegurarse de que la imagen tiene modo RGBA para soportar transparencias
+                try:
+                    f = f.convert('RGBA')
+                except Exception:
+                    pass
+                f = f.resize((self.size, self.size), Image.Resampling.LANCZOS)
+                frames.append(ImageTk.PhotoImage(f))
+            if not frames:
+                return False
+            self.gif_frames = frames
+            self.gif_index = 0
+            # Función interna de animación
+            def animate():
+                if self.gif_frames is None:
+                    return
+                self.canvas.delete("all")
+                frame = self.gif_frames[self.gif_index]
+                self.canvas.create_image(self.size//2, self.size//2, image=frame)
+                self.gif_index = (self.gif_index + 1) % len(self.gif_frames)
+                self.gif_animation_id = self.canvas.after(100, animate)
+            animate()
+            return True
+        except Exception as e:
+            print(f"Error animando GIF {sprite_path}: {e}")
+            return False
     
     def _draw_simple_sprite(self, state):
         """Dibuja sprite simple según el estado - SIN EMOTICONOS"""
@@ -417,10 +502,12 @@ class MiniDiego:
         self.sleeping = False
         self.sleep_start_time = None
         
-        # Contador de 24 horas (1 día).  Adaptamos la duración del juego para que se pueda
-        # completar en un día, en lugar de las 168 horas (7 días) originales.
+        # Contador de 12 horas.  Adaptamos la duración del juego a medio día, de modo
+        # que Mini‑Diego pueda ser cuidado en sesiones más cortas.  La hora
+        # inicial y el tiempo total se utilizan para calcular el tiempo
+        # restante en ``_countdown_loop``.
         self.game_start_time = time.time()
-        self.total_time = 24 * 3600
+        self.total_time = 12 * 3600
         self.pause_time_used = 0
         self.pause_start_time = None
         # Guardamos la fecha del último día en que se reseteó la pausa (YYYY-MM-DD)
@@ -464,10 +551,12 @@ class MiniDiego:
         self.time_frame = tk.Frame(self.root, bg="#1a1a1a", relief="sunken", bd=2)
         self.time_frame.pack(fill="x", padx=10, pady=5)
 
-        # Ajustamos la etiqueta del contador para reflejar las 24 horas de juego.
+        # Ajustamos la etiqueta del contador para reflejar las 12 horas de juego.  El
+        # formato mantiene tres dígitos para las horas por coherencia con la
+        # versión anterior.
         self.time_label = tk.Label(
             self.time_frame,
-            text="Tiempo: 024:00:00",
+            text="Tiempo: 012:00:00",
             font=("Arial", 12, "bold"),
             bg="#1a1a1a",
             fg="#00FF00"
@@ -718,8 +807,9 @@ class MiniDiego:
     
     def _countdown_loop(self):
         """
-        Loop del contador.  En esta versión no existe un modo de pausa manual, por lo
-        que el tiempo restante sólo se detiene cuando Mini‑Diego está durmiendo.
+        Loop del contador.  En la versión de 12 horas no existe modo de pausa
+        manual, por lo que el tiempo restante sólo se detiene cuando
+        Mini‑Diego está durmiendo.
         """
         while True:
             try:
@@ -751,13 +841,155 @@ class MiniDiego:
                 time.sleep(1)
             except:
                 time.sleep(1)
+
+    def force_victory(self) -> None:
+        """
+        Forzar la victoria.  Permite al administrador finalizar la partida
+        inmediatamente.  Esto invoca el mismo flujo que cuando se agota el
+        tiempo sin penalizar al jugador.
+        """
+        # Llama al manejador de victoria
+        self._game_won()
+
+    def reduce_time(self, seconds: int) -> None:
+        """
+        Reduce el tiempo restante del juego.
+
+        Disminuye ``total_time`` en la cantidad especificada (en segundos).
+        Si el tiempo restante se agota, se invoca la victoria.  Tras
+        ajustar el temporizador, se actualiza inmediatamente la etiqueta de
+        tiempo.
+
+        :param seconds: segundos a restar (p.ej., 3600 para una hora o 300 para cinco minutos)
+        """
+        # No modificar si ya hemos finalizado
+        if not self.alive:
+            return
+        # Ajustar total_time pero no permitir valores negativos
+        self.total_time = max(0, self.total_time - seconds)
+        # Calcular tiempo restante tras el ajuste
+        elapsed = time.time() - self.game_start_time
+        remaining = self.total_time - elapsed
+        if remaining <= 0:
+            # Invocar victoria si ya no queda tiempo
+            self._game_won()
+            return
+        # Actualizar etiqueta de tiempo inmediatamente
+        hours = int(remaining // 3600)
+        minutes = int((remaining % 3600) // 60)
+        seconds_left = int(remaining % 60)
+        time_str = f"Tiempo: {hours:03d}:{minutes:02d}:{seconds_left:02d}"
+        try:
+            self.time_label.config(text=time_str, fg="#00FF00")
+        except Exception:
+            pass
     
     def _game_won(self):
         """
-        Victoria.  Se invoca cuando la cuenta atrás de 24 horas llega a cero y Mini‑Diego
-        sigue con vida.
+        Maneja la victoria del juego.  Cuando el contador de tiempo llega a
+        cero y Mini‑Diego sigue con vida, se reproduce un sonido de
+        finalización y se muestra un panel heroico felicitando al jugador.
+
+        En lugar de salir inmediatamente, se crea una ventana modal que
+        presenta un mensaje de victoria para "Fran Rebollo" junto con la
+        clave especial proporcionada por el usuario.  Al cerrar este panel,
+        el programa termina.
         """
-        self.root.quit()
+        # Marcar que el juego se ha completado para detener bucles de desgaste
+        self.alive = False
+        # Reproducir sonido de juego completado, si se ha definido alguno
+        try:
+            play_random_sound(os.path.join("assets", "sounds", "game_complete"))
+        except Exception:
+            pass
+        # Crear panel de victoria
+        top = tk.Toplevel(self.root)
+        top.title("¡Victoria!")
+        # Tamaño amplio para enfatizar la victoria
+        top.geometry("700x500")
+        top.attributes("-topmost", True)
+        # Fondo predeterminado
+        top.configure(bg="#0D47A1")  # azul oscuro heroico
+        # Evitar que el usuario cierre la ventana accidentalmente con la X
+        top.protocol("WM_DELETE_WINDOW", lambda: None)
+
+        # Intentar cargar una imagen de fondo desde la carpeta assets/backgrounds
+        bg_loaded = False
+        try:
+            bg_dir = os.path.join("assets", "backgrounds")
+            if os.path.isdir(bg_dir):
+                # Buscar el primer archivo de imagen (png o jpg o gif) en la carpeta
+                for fname in os.listdir(bg_dir):
+                    if fname.lower().endswith((".png", ".jpg", ".jpeg", ".gif")):
+                        bg_path = os.path.join(bg_dir, fname)
+                        if HAS_PIL:
+                            try:
+                                from PIL import Image, ImageTk
+                                img = Image.open(bg_path)
+                                # Redimensionar al tamaño de la ventana
+                                img = img.resize((700, 500), Image.Resampling.LANCZOS)
+                                top._bg_photo = ImageTk.PhotoImage(img)  # guardar referencia
+                                bg_label = tk.Label(top, image=top._bg_photo)
+                                bg_label.place(x=0, y=0, relwidth=1, relheight=1)
+                                bg_loaded = True
+                                break
+                            except Exception:
+                                pass
+                        else:
+                            try:
+                                photo = tk.PhotoImage(file=bg_path)
+                                top._bg_photo = photo
+                                bg_label = tk.Label(top, image=top._bg_photo)
+                                bg_label.place(x=0, y=0, relwidth=1, relheight=1)
+                                bg_loaded = True
+                                break
+                            except Exception:
+                                pass
+        except Exception:
+            pass
+
+        # Usar un canvas para evitar fondos blancos.  Dibujamos textos
+        # directamente sobre el canvas, de modo que el fondo (imagen o
+        # color sólido) sea visible detrás de las letras.
+        canvas = tk.Canvas(top, width=700, height=500, highlightthickness=0)
+        canvas.place(x=0, y=0)
+        # Dibujar fondo si se cargó
+        if bg_loaded:
+            try:
+                canvas.create_image(0, 0, anchor="nw", image=top._bg_photo)
+            except Exception:
+                # Fallback: color sólido
+                canvas.configure(bg="#0D47A1")
+        else:
+            canvas.configure(bg="#0D47A1")
+        # Titular en color dorado
+        canvas.create_text(350, 140, text="¡HAS COMPLETADO EL JUEGO!", fill="#FFD700",
+                            font=("Comic Sans MS", 24, "bold"), anchor="center")
+        # Mensaje personal en naranja
+        canvas.create_text(350, 200,
+                            text="Muchas gracias por ser mi amigo Fran, feliz cumpleaños, te quiero",
+                            fill="#FFA500", font=("Comic Sans MS", 16, "bold"), anchor="center",
+                            width=600)
+        # Clave en azul
+        canvas.create_text(350, 260, text="Clave: 65XYD-QR6L0-ETGG9", fill="#2196F3",
+                            font=("Courier New", 20, "bold"), anchor="center")
+        # Mensaje inferior animando a explorar
+        canvas.create_text(350, 320,
+                            text="¡Ya puedes explorar el proyecto y descubrir todos sus secretos!",
+                            fill="#BBDEFB", font=("Arial", 14, "italic"), anchor="center",
+                            width=650)
+        # Botón para cerrar
+        def close_game():
+            try:
+                top.destroy()
+            except Exception:
+                pass
+            self.root.quit()
+        close_btn = tk.Button(top, text="Cerrar", command=close_game,
+                             font=("Arial", 14, "bold"), bg="#4CAF50", fg="white",
+                             width=12, pady=6)
+        # Posicionar botón en la parte inferior
+        close_btn.place(relx=0.5, rely=0.88, anchor="center")
     
     def _get_emotional_state(self):
         """Determina estado emocional"""
@@ -867,7 +1099,12 @@ class MiniDiego:
                     
                     # Ganar sueño CADA MINUTO
                     if self.sueno < 100:
-                        self.change_stat('sueno', 1.43)
+                        # Ganar sueño según configuración (por minuto)
+                        try:
+                            self.change_stat('sueno', SLEEP_GAIN_PER_MINUTE)
+                        except Exception:
+                            # En caso de error, usar un valor predeterminado
+                            self.change_stat('sueno', 1.5)
                     else:
                         # Si ya está al 100%, pierde felicidad lentamente
                         self.change_stat('felicidad', -0.5)  # -0.5% por minuto
@@ -1347,6 +1584,15 @@ class MiniDiego:
         # Despertar mascota
         tk.Button(control_col, text="Despertar", command=lambda: setattr(self, 'sleeping', False),
                  width=18, bg="#FF9800", fg="white", font=("Arial", 10, "bold")).pack(pady=4, fill="x")
+        # Botón para forzar la victoria inmediata
+        tk.Button(control_col, text="Forzar Victoria", command=self.force_victory,
+                 width=18, bg="#03A9F4", fg="white", font=("Arial", 10, "bold")).pack(pady=4, fill="x")
+        # Botón para restar 1 hora (3600 segundos) al temporizador
+        tk.Button(control_col, text="-1 hora", command=lambda: self.reduce_time(3600),
+                 width=18, bg="#FF5722", fg="white", font=("Arial", 10, "bold")).pack(pady=4, fill="x")
+        # Botón para restar 5 minutos (300 segundos) al temporizador
+        tk.Button(control_col, text="-5 minutos", command=lambda: self.reduce_time(300),
+                 width=18, bg="#FF7043", fg="white", font=("Arial", 10, "bold")).pack(pady=4, fill="x")
         # Salir del programa
         tk.Button(control_col, text="SALIR", command=self.root.quit,
                  width=18, bg="#f44336", fg="white", font=("Arial", 10, "bold")).pack(pady=4, fill="x")
