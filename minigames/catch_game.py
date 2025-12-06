@@ -228,23 +228,20 @@ class CatchGame:
     def _spawn_object(self) -> None:
         if not self.game_running or self.spawned_objects >= self.total_objects:
             return
-        # Decidir si el objeto es bueno o malo (calavera) con probabilidad 1/3
-        is_bad = random.random() < 0.33
+        # Los objetos siempre son buenos.  Se eliminan por completo las
+        # "calaveras" o elementos negativos para evitar problemas de
+        # renderizado y confusión.  Todos los objetos otorgarán puntos al
+        # atraparlos y nunca terminarán la partida de forma inmediata al ser
+        # capturados.
+        is_bad = False
         radius = 15
         x = random.randint(radius, self.width - radius)
         y = 0 - radius  # inicia fuera de la pantalla
-        if is_bad:
-            # Dibujar calavera utilizando emoji
-            obj_id = self.canvas.create_text(
-                x, y,
-                text="☠", font=("Arial", 20, "bold"), fill="white"
-            )
-        else:
-            # Dibujar objeto bueno (círculo amarillo)
-            obj_id = self.canvas.create_oval(
-                x - radius, y - radius, x + radius, y + radius,
-                fill="#FFEB3B", outline="white", width=2
-            )
+        # Dibujar objeto bueno (círculo amarillo)
+        obj_id = self.canvas.create_oval(
+            x - radius, y - radius, x + radius, y + radius,
+            fill="#FFEB3B", outline="white", width=2
+        )
         self.objects.append({
             "id": obj_id,
             "x": x,

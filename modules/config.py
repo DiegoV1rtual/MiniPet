@@ -29,7 +29,7 @@ SLEEP_DECAY_REDUCTION = 0.80
 # Ganancia de sueño por minuto.  Con 4.5 puntos por minuto, la barra puede
 # llenarse por completo en menos de 25 minutos de sueño continuo.  Esto
 # compensa la degradación del sueño en la versión de 12 horas.
-SLEEP_GAIN_PER_MINUTE = 4.5
+SLEEP_GAIN_PER_MINUTE = 6.0
 SLEEP_OPTIMAL_HOURS = 6        # Tras 6 h seguidas empieza a penalizar felicidad
 
 # Límites

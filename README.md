@@ -34,7 +34,7 @@ manipular el temporizador e incluso forzar la victoria.
 ## Normas básicas
 
 - **Alimentar** (+10 % de hambre) mantiene a Mini‑Diego satisfecho.
-- **Dormir** (+4.5 % de sueño por minuto) recupera el sueño; no lo
+- **Dormir** (+6 % de sueño por minuto) recupera el sueño; no lo
   dejes dormido más de 6 horas seguidas o perderá felicidad.
 - **Duchar** (+40 % de higiene) previene enfermedades.
 - **Minijuegos**: acepta jugar para ganar felicidad; saltarlos penaliza

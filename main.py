@@ -223,7 +223,8 @@ class PetOverlay:
         self.screen_height = screen_height
     
     def load_sprite(self, state="normal"):
-        """Carga un sprite según el estado emocional.
+        """
+        Carga un sprite según el estado emocional.
 
         Se admite tanto PNG como GIF, e incluso JPEG.  El método
         busca primero un archivo con el nombre de estado y extensión
@@ -232,13 +233,24 @@ class PetOverlay:
         al tamaño del sprite.  Si no existe ninguna imagen o se
         produce un error al cargarla, se dibuja un sprite simple de
         colores.
+
+        Para garantizar que los sprites se encuentren correctamente
+        independientemente del directorio de trabajo actual, se
+        construye la ruta a partir del directorio en el que se
+        encuentra este archivo (``main.py``).
         """
         self.canvas.delete("all")
         # Construir lista de extensiones en orden de preferencia
         exts = [".png", ".gif", ".jpg", ".jpeg"]
         sprite_path = None
+        # Ruta base relativa a la ubicación de este archivo
+        try:
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+        except Exception:
+            base_dir = os.getcwd()
+        sprites_dir = os.path.join(base_dir, "assets", "sprites")
         for ext in exts:
-            path = os.path.join("assets", "sprites", f"{state}{ext}")
+            path = os.path.join(sprites_dir, f"{state}{ext}")
             if os.path.exists(path):
                 sprite_path = path
                 break
@@ -883,6 +895,18 @@ class MiniDiego:
             self.time_label.config(text=time_str, fg="#00FF00")
         except Exception:
             pass
+
+    def preview_state(self, state: str) -> None:
+        """
+        Muestra el sprite correspondiente al estado indicado.  Esta
+        función se utiliza en el panel de administración para que el
+        usuario pueda ver los sprites de todos los estados disponibles.
+        :param state: nombre del estado (por ejemplo, 'feliz', 'sucio')
+        """
+        try:
+            self.pet_overlay.update_state(state)
+        except Exception:
+            pass
     
     def _game_won(self):
         """
@@ -1037,8 +1061,19 @@ class MiniDiego:
         return "normal"
     
     def _update_pet_sprite(self):
-        """Actualiza sprite de mascota"""
-        state = self._get_emotional_state()
+        """
+        Actualiza la imagen de la mascota en pantalla.
+
+        Cuando Mini‑Diego está dormida (``self.sleeping`` es ``True``),
+        siempre se muestra el sprite de ``durmiendo`` sin importar el resto
+        de estadísticas.  De lo contrario, se utiliza el estado emocional
+        calculado en ``_get_emotional_state``.
+        """
+        # Si la mascota está dormida, forzar el estado a "durmiendo"
+        if getattr(self, 'sleeping', False):
+            state = "durmiendo"
+        else:
+            state = self._get_emotional_state()
         self.pet_overlay.update_state(state)
     
     def change_stat(self, stat_name, amount):
@@ -1290,6 +1325,15 @@ class MiniDiego:
     def _minigame_callback(self, result):
         """Callback de minijuego"""
         self.current_game = None
+
+        # Jugar un minijuego cansa a Mini‑Diego: reduce el nivel de sueño
+        # para reflejar el esfuerzo.  Si el nivel de sueño baja mucho, será
+        # necesario dormir para recuperarse.
+        try:
+            # Restamos 15 puntos (15 %) de sueño por cada minijuego jugado
+            self.change_stat('sueno', -15)
+        except Exception:
+            pass
         
         if result == 'won':
             self.change_stat('felicidad', 15)  # +15% felicidad por ganar
@@ -1505,6 +1549,11 @@ class MiniDiego:
             play_random_sound(os.path.join("assets", "sounds", "sleep"))
             # Iniciar sonidos ambientales en bucle mientras duerme
             self.start_sleep_ambient_sound()
+        # Actualizar inmediatamente el sprite para reflejar el estado de sueño
+        try:
+            self._update_pet_sprite()
+        except Exception:
+            pass
     
     def open_admin(self):
         """Panel admin"""
@@ -1620,6 +1669,25 @@ class MiniDiego:
                      command=lambda f=folder: play_random_sound(os.path.join("assets", "sounds", f)),
                      width=18, bg="#9C27B0", fg="white", font=("Arial", 10, "bold"),
                      wraplength=130, justify="center").pack(pady=2, fill="x")
+
+        # ------------------------------------------------------------------
+        # Columna para ver estados (sprites)
+        state_col = tk.Frame(content_frame, bg="#1a1a1a")
+        state_col.pack(side="left", fill="both", expand=True, padx=10)
+        tk.Label(state_col, text="Ver estados:", font=("Comic Sans MS", 12, "bold"),
+                 bg="#1a1a1a", fg="white").pack(pady=(0, 8))
+        # Lista de todos los estados disponibles para previsualizar
+        preview_states = [
+            "normal", "hambriento", "muy_hambriento", "gordo", "sucio", "muy_sucio",
+            "cansado", "agotado", "feliz", "muy_feliz", "triste", "muy_triste",
+            "durmiendo", "enfermo", "muriendo", "muerte_obesidad", "muerte_tristeza",
+            "muerte_sueno", "muerte_hambre", "muerte_higiene"
+        ]
+        for st in preview_states:
+            tk.Button(state_col, text=st,
+                     command=lambda s=st: self.preview_state(s),
+                     width=18, bg="#607D8B", fg="white", font=("Arial", 9, "bold"),
+                     wraplength=130, justify="center").pack(pady=1, fill="x")
     
     def restore_stats(self):
         """Restaurar stats"""
@@ -1647,10 +1715,10 @@ class MiniDiego:
         def loop() -> None:
             while not self._sleep_ambient_stop.is_set():
                 play_random_sound(os.path.join("assets", "sounds", "sleep_ambient"))
-                # Esperar unos segundos antes de reproducir el siguiente sonido
-                # para no superponer clips. El tiempo de espera se puede ajustar
-                # según la duración de tus pistas de audio.
-                time.sleep(10)
+                # Reproducir un sonido cada 2 minutos (120 segundos) para no
+                # saturar al jugador y proporcionar un intervalo relajante.
+                # Se puede ajustar este valor según la duración de las pistas.
+                time.sleep(120)
         # Lanzar hilo en segundo plano
         self._sleep_ambient_thread = threading.Thread(target=loop, daemon=True)
         self._sleep_ambient_thread.start()

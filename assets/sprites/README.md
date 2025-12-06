@@ -14,9 +14,8 @@ gráficos.
   las imágenes a 150 px cuadrados, pero partir de este tamaño evita
   deformaciones.
 - **Formatos de archivo:** Se admiten `.png`, `.gif`, `.jpg` y `.jpeg`.
-  - Para archivos GIF sólo se utiliza el primer fotograma (no hay
-    animación).  Si deseas animaciones, será necesario extender el
-    código.
+  - Los archivos **GIF** se animarán automáticamente. Puedes usar GIFs animados
+    para cada estado y Mini‑Diego reproducirá toda la secuencia en bucle.
 - **Nombre del archivo:** debe coincidir exactamente con el nombre del
   estado para el que se mostrará.  Por ejemplo, para el estado
   "feliz" puedes utilizar `feliz.png` o `feliz.gif`.  Algunos
